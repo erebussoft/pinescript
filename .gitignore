@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+venv/
+env/
+
+# Sensitive configuration files
+config.py
+# If you were using .env files
+# .env
+
+# IDE specific files
+.idea/
+.vscode/
+
+# Log files
+*.log
+
+# Other
+*.swp
+*.swo
+local_settings.py

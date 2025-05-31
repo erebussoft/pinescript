@@ -1,0 +1,5 @@
+Flask>=2.0.0,<3.0.0
+python-binance>=1.0.16,<2.0.0
+httpx>=0.23.0,<1.0.0
+gunicorn>=20.0.0,<22.0.0 # For deployment
+# APScheduler>=3.0.0,<4.0.0 # Add if using APScheduler for background tasks like trailing stops
