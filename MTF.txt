@@ -1,0 +1,348 @@
+//@version=5
+indicator(title="Trader Circle_Indicator Advanced Filters @byTlos", shorttitle="TC Ind", overlay=true)
+
+// ───────── USER INPUTS ───────── //
+minConfirmations = input.int(2, title="Min. Timeframe Confirmations", minval=1, maxval=5)
+useRsi  = input.bool(false, title="Use RSI Filter?")
+useMacd = input.bool(false, title="Use MACD Filter?")
+rsiLength = input.int(14, title="RSI Length")
+fastLength   = input.int(12, title="MACD Fast Length")
+slowLength   = input.int(26, title="MACD Slow Length")
+signalLength = input.int(9,  title="MACD Signal Length")
+maType = input.string(defval="EMA", title="Moving Average Type", options=["SMA", "EMA", "RMA", "WMA"])
+maLength = input.int(200, title="MA Period", minval=1)
+
+// ───────── ALARM AYARLARI ───────── //
+enableAlerts = input.bool(true, title="🔔 Alarmları Etkinleştir", group="ALARM AYARLARI")
+alertOnLongSignal = input.bool(true, title="🟢 4H Teyitli Long Sinyal Alarmı", group="ALARM AYARLARI")
+alertOnShortSignal = input.bool(true, title="🔴 4H Teyitli Short Sinyal Alarmı", group="ALARM AYARLARI")
+
+// ───────── COLOR INPUTS ───────── //
+cDailyLong     = input.color(color.lime,    title="Günlük Long Rengi")
+cDailyShort    = input.color(color.red,     title="Günlük Short Rengi")
+cHourlyLong    = input.color(color.blue,    title="Saatlik Long Rengi")
+cHourlyShort   = input.color(color.orange,  title="Saatlik Short Rengi")
+cTwoHourLong   = input.color(color.purple,  title="2 Saatlik Long Rengi")
+cTwoHourShort  = input.color(color.yellow,  title="2 Saatlik Short Rengi")
+cFourHourLong  = input.color(color.teal,    title="4 Saatlik Long Rengi")
+cFourHourShort = input.color(color.maroon,  title="4 Saatlik Short Rengi")
+cWeeklyLong    = input.color(color.fuchsia, title="Haftalık Long Rengi")
+cWeeklyShort   = input.color(color.navy,    title="Haftalık Short Rengi")
+cFinalLong     = input.color(color.lime,    title="MTF+Filter Long Rengi")
+cFinalShort    = input.color(color.red,     title="MTF+Filter Short Rengi")
+
+// ───────── HELPER FUNCTIONS ───────── //
+f_ma(source, length, type) =>
+    switch type
+        "SMA" => ta.sma(source, length)
+        "EMA" => ta.ema(source, length)
+        "RMA" => ta.rma(source, length)
+        "WMA" => ta.wma(source, length)
+
+// MACD hesaplama
+[macdValue, macdSignal, macdHist] = ta.macd(close, fastLength, slowLength, signalLength)
+
+// RSI hesaplama
+rsiValue = ta.rsi(close, rsiLength)
+
+// ───────── MULTI-TIMEFRAME DATA ───────── //
+dailyOpen   = request.security(syminfo.tickerid, 'D',   open,  lookahead=barmerge.lookahead_on)
+dailyClose  = request.security(syminfo.tickerid, 'D',   close, lookahead=barmerge.lookahead_on)
+dailyHigh   = request.security(syminfo.tickerid, 'D',   high,  lookahead=barmerge.lookahead_on)
+dailyLow    = request.security(syminfo.tickerid, 'D',   low,   lookahead=barmerge.lookahead_on)
+plot(dailyHigh, color=color.new(color.gray, 0), title='Daily High', style=plot.style_cross, linewidth=1)
+plot(dailyLow,  color=color.new(color.gray, 0), title='Daily Low',  style=plot.style_cross, linewidth=1)
+
+hourlyOpen   = request.security(syminfo.tickerid, '60',  open,  lookahead=barmerge.lookahead_on)
+hourlyClose  = request.security(syminfo.tickerid, '60',  close, lookahead=barmerge.lookahead_on)
+
+twoHourOpen  = request.security(syminfo.tickerid, '120', open,  lookahead=barmerge.lookahead_on)
+twoHourClose = request.security(syminfo.tickerid, '120', close, lookahead=barmerge.lookahead_on)
+
+fourHourOpen  = request.security(syminfo.tickerid, '240', open,  lookahead=barmerge.lookahead_on)
+fourHourClose = request.security(syminfo.tickerid, '240', close, lookahead=barmerge.lookahead_on)
+
+weeklyOpen  = request.security(syminfo.tickerid, 'W', open,  lookahead=barmerge.lookahead_on)
+weeklyClose = request.security(syminfo.tickerid, 'W', close, lookahead=barmerge.lookahead_on)
+
+// ───────── TIMEFRAME SIGNALS ───────── //
+bool dailyLong   = ta.crossover(dailyClose,  dailyOpen)
+bool dailyShort  = ta.crossunder(dailyClose, dailyOpen)
+bool hourlyLong   = ta.crossover(hourlyClose,  hourlyOpen)
+bool hourlyShort  = ta.crossunder(hourlyClose, hourlyOpen)
+bool twoHourLong   = ta.crossover(twoHourClose,   twoHourOpen)
+bool twoHourShort  = ta.crossunder(twoHourClose,  twoHourOpen)
+bool fourHourLong   = ta.crossover(fourHourClose,   fourHourOpen)
+bool fourHourShort  = ta.crossunder(fourHourClose,  fourHourOpen)
+bool weeklyLong   = ta.crossover(weeklyClose,   weeklyOpen)
+bool weeklyShort  = ta.crossunder(weeklyClose,  weeklyOpen)
+
+// Her zaman dilimi için shape plotları - Sadece MTF sinyalleri (plot sayısını azaltmak için)
+// Bireysel timeframe sinyalleri kaldırıldı (plot limitini aşmamak için)
+
+// ───────── CONFIRMATION LOGIC ───────── //
+longCount  = (dailyLong ? 1 : 0) + (hourlyLong ? 1 : 0) + (twoHourLong ? 1 : 0) + (fourHourLong ? 1 : 0) + (weeklyLong ? 1 : 0)
+shortCount = (dailyShort ? 1 : 0) + (hourlyShort ? 1 : 0) + (twoHourShort ? 1 : 0) + (fourHourShort ? 1 : 0) + (weeklyShort ? 1 : 0)
+
+bool combinedLong  = longCount  >= minConfirmations and shortCount == 0
+bool combinedShort = shortCount >= minConfirmations and longCount  == 0
+
+// ───────── INDICATOR FILTERS (RSI / MACD) ───────── //
+bool passRsiLong  = rsiValue > 50
+bool passRsiShort = rsiValue < 50
+bool passMacdLong  = macdValue > macdSignal
+bool passMacdShort = macdValue < macdSignal
+
+bool finalLongFilter  = (not useRsi or passRsiLong)  and (not useMacd or passMacdLong)
+bool finalShortFilter = (not useRsi or passRsiShort) and (not useMacd or passMacdShort)
+
+//─────────────────────────────────────────────────────────────
+// MTF VOLUME & MOMENTUM OSCILLATOR KODLARI
+//─────────────────────────────────────────────────────────────
+volumeLookback      = input.int (10 , "Hacim Ortalama Periyodu" , minval = 1)
+momentumLookback    = input.int (10 , "Momentum Periyodu"       , minval = 1)
+smoothLen           = input.int (1  , "Sinyal EMA Yumuşatma"    , minval = 1)
+atrLen              = input.int (11 , "ATR Periyodu"            , minval = 1)
+atrSensitivity      = input.float(1 , "ATR-Renk Hassasiyet Çarpanı", minval = 0, step = 0.1)
+deltaMode           = input.bool(true, "Delta Modu (Pozitif/Negatif Ayrı Göster)")
+
+// DELTA MOD ŞERİT SEVİYELERİ
+h4V_pos_lane = 32
+h4V_neg_lane = 34
+h4M_pos_lane = 36
+h4M_neg_lane = 38
+
+// RENK PALETİ
+weakBull   = color.rgb(  0,170,  0, 50)   // sönük yeşil
+strongBull = color.rgb(  0,255,  0,  0)   // parlak yeşil
+weakBear   = color.rgb(170,  0,  0, 50)   // sönük kırmızı
+strongBear = color.rgb(255,  0,  0,  0)   // parlak kırmızı
+neutralCol = color.new(color.yellow, 80)  // kararsız
+
+// YARDIMCI FONKSİYONLAR
+getVolumeSignal(vol, volMA, cls, opn) =>
+    ratio   = vol / volMA
+    bullish = cls > opn
+    bearish = cls < opn
+    if deltaMode
+        if bullish
+            ratio > 1.2 ? 1 : (ratio < 0.8 ? 0.5 : 0.3)
+        else
+            ratio > 1.2 ? -1 : (ratio < 0.8 ? -0.5 : -0.3)
+    else
+        ratio > 1.2 ? (bullish ? 1 : bearish ? -1 : 0) : ratio < 0.8 ? (bullish ? 0.5 : bearish ? -0.5 : 0) : 0
+
+getMomentumSignal(cls, lb) =>
+    delta = cls - cls[lb]
+    if deltaMode
+        if delta > 0
+            delta >  cls * 0.01 ?  1   :  0.5
+        else
+            delta < -cls * 0.01 ? -1   : -0.5
+    else
+        delta > 0 ? (delta >  cls * 0.01 ?  1   :  0.5) : delta < 0 ? (delta < -cls * 0.01 ? -1   : -0.5) : 0
+
+smooth(sig) => ta.ema(sig, smoothLen)
+volAdj(atr, cls) => 1 + (atr / cls) * atrSensitivity
+getColor(sig, factor) =>
+    strength = math.min(1.0, math.abs(sig) * factor)
+    sig > 0  ? color.from_gradient(strength, 0, 1, weakBull, strongBull) : sig < 0  ? color.from_gradient(strength, 0, 1, weakBear, strongBear) : neutralCol
+
+// SİNYAL ÜRET & GÖSTER
+securitySignals(tf, laneVolPos, laneVolNeg, laneMomPos, laneMomNeg)=>
+    cls  = request.security(syminfo.tickerid, tf, close , lookahead = barmerge.lookahead_on)
+    opn  = request.security(syminfo.tickerid, tf, open  , lookahead = barmerge.lookahead_on)
+    vol  = request.security(syminfo.tickerid, tf, volume, lookahead = barmerge.lookahead_on)
+    vMA  = request.security(syminfo.tickerid, tf, ta.sma(volume, volumeLookback),   lookahead = barmerge.lookahead_on)
+    atr  = request.security(syminfo.tickerid, tf, ta.atr(atrLen)                ,   lookahead = barmerge.lookahead_on)
+
+    vSig = smooth(getVolumeSignal(vol, vMA, cls, opn))
+    mSig = smooth(getMomentumSignal(cls, momentumLookback))
+
+    factor = volAdj(atr, cls)
+
+    vCol = getColor(vSig, factor)
+    mCol = getColor(mSig, factor)
+
+    vPosPlot = vSig > 0 ? laneVolPos : na
+    vNegPlot = vSig < 0 ? laneVolNeg : na
+    mPosPlot = mSig > 0 ? laneMomPos : na
+    mNegPlot = mSig < 0 ? laneMomNeg : na
+
+    [vCol, mCol, vPosPlot, vNegPlot, mPosPlot, mNegPlot, vSig, mSig]
+
+// 4H sinyalleri hesapla
+[h4VCol, h4MCol, h4VPosPlot, h4VNegPlot, h4MPosPlot, h4MNegPlot, h4VSig, h4MSig] = securitySignals('240', h4V_pos_lane, h4V_neg_lane, h4M_pos_lane, h4M_neg_lane)
+
+// ───────── 4H MOMENTUM VE HACİM TEYİTİ ───────── //
+bool h4MomentumConfirm = h4MSig > 0  // 4H momentum pozitif
+bool h4VolumeConfirm = h4VSig > 0    // 4H hacim pozitif
+bool h4MomentumBearish = h4MSig < 0  // 4H momentum negatif
+bool h4VolumeBearish = h4VSig < 0    // 4H hacim negatif
+
+// 4H teyit - hem momentum hem hacim aynı yönde olmalı
+bool h4BullishConfirm = h4MomentumConfirm and h4VolumeConfirm
+bool h4BearishConfirm = h4MomentumBearish and h4VolumeBearish
+
+// FINAL SİNYALLER - 4H TEYİTLİ
+bool finalLong  = combinedLong  and finalLongFilter and h4BullishConfirm
+bool finalShort = combinedShort and finalShortFilter and h4BearishConfirm
+
+// ───────── STRATEGY LOGIC ───────── //
+// if finalLong
+    // strategy.close("Short")  // Short pozisyonu kapat
+    // strategy.entry("Long", strategy.long)  // Long pozisyon aç
+
+// if finalShort
+    // strategy.close("Long")  // Long pozisyonu kapat
+    // strategy.entry("Short", strategy.short)  // Short pozisyon aç
+
+// ───────── PLOT COMBINED SIGNALS (4H TEYİTLİ) ───────── //
+plotshape(series=finalLong,  title="MTF+4H Teyitli Long",  style=shape.triangleup,   location=location.belowbar, color=cFinalLong,  size=size.normal, text="4H Teyitli Long",  textcolor=cFinalLong)
+plotshape(series=finalShort, title="MTF+4H Teyitli Short", style=shape.triangledown, location=location.abovebar, color=cFinalShort, size=size.normal, text="4H Teyitli Short", textcolor=cFinalShort)
+
+//─────────────────────────────────────────────────────────────
+// ALARM KOŞULLARI - 4H TEYİTLİ SİNYALLER (KULLANICI AYARLARINA GÖRE)
+//─────────────────────────────────────────────────────────────
+
+// 4H Teyitli Long Alarm
+alertcondition(condition = enableAlerts and alertOnLongSignal and finalLong, title = "🟢 4H Teyitli LONG Sinyali", message = "🚀 4H TEYİTLİ LONG SİNYALİ!\n📊 Sembol: {{ticker}}\n⏰ Zaman: {{time}}\n💰 Fiyat: {{close}}\n✅ 4H Momentum: Pozitif\n✅ 4H Hacim: Pozitif\n📈 Long pozisyon açılabilir!")
+
+// 4H Teyitli Short Alarm
+alertcondition(condition = enableAlerts and alertOnShortSignal and finalShort, title = "🔴 4H Teyitli SHORT Sinyali", message = "📉 4H TEYİTLİ SHORT SİNYALİ!\n📊 Sembol: {{ticker}}\n⏰ Zaman: {{time}}\n💰 Fiyat: {{close}}\n❌ 4H Momentum: Negatif\n❌ 4H Hacim: Negatif\n📉 Short pozisyon açılabilir!")
+
+// ───────── EK ALARM AYARLARI ───────── //
+enableStrongSignalAlerts = input.bool(true, title="🔔 Güçlü Sinyal Alarmları", group="ALARM AYARLARI")
+
+// ───────── PULLBACK LEVELS ───────── //
+var float long_pullback_level  = na
+var float short_pullback_level = na
+
+if finalLong
+    long_pullback_level := low
+
+if finalShort
+    short_pullback_level := high
+
+plot(long_pullback_level,  color=color.green, linewidth=2, style=plot.style_stepline, title="Long Pullback Level")
+plot(short_pullback_level, color=color.red,   linewidth=2, style=plot.style_stepline, title="Short Pullback Level")
+
+// ───────── MOVING AVERAGE ───────── //
+signalMA = f_ma(close, maLength, maType)
+plot(signalMA, title="Sinyal Ortalaması", color=#ec088d, linewidth=2)
+
+//─────────────────────────────────────────────────────────────
+// EK ŞERİT SEVİYELERİ TANIMLAMALARI (1H, 2H)
+//─────────────────────────────────────────────────────────────
+// 1H
+h1V_pos_lane = 12
+h1V_neg_lane = 14
+h1M_pos_lane = 16
+h1M_neg_lane = 18
+// 2H
+h2V_pos_lane = 22
+h2V_neg_lane = 24
+h2M_pos_lane = 26
+h2M_neg_lane = 28
+
+// 1H ve 2H sinyalleri de hesapla (gösterme amaçlı)
+[h1VCol, h1MCol, h1VPosPlot, h1VNegPlot, h1MPosPlot, h1MNegPlot, h1VSig, h1MSig] = securitySignals('60', h1V_pos_lane, h1V_neg_lane, h1M_pos_lane, h1M_neg_lane)
+[h2VCol, h2MCol, h2VPosPlot, h2VNegPlot, h2MPosPlot, h2MNegPlot, h2VSig, h2MSig] = securitySignals('120', h2V_pos_lane, h2V_neg_lane, h2M_pos_lane, h2M_neg_lane)
+
+//─────────────────────────────────────────────────────────────
+// RENKLİ ÇİZGİLER - KALDIRILIYOR (Grafik hareketi sorunu çözümü)
+//─────────────────────────────────────────────────────────────
+// Sabit konumlu çizgiler yerine tablo kullanacağız
+
+//─────────────────────────────────────────────────────────────
+// 4H SİNYAL TAKIP SİSTEMİ - SADECE BİLGİ TABLOSU
+//─────────────────────────────────────────────────────────────
+// Grafik hareketi önlemek için plotshape kaldırıldı, sadece tablo kullanılıyor
+
+//─────────────────────────────────────────────────────────────
+// GÜÇLÜ ALIM/SATIM SİNYALİ - MUM BAZLİ
+//─────────────────────────────────────────────────────────────
+// Fonksiyon: Aynı zaman diliminde momentum ve hacmin uyumunu değerlendir
+timeframeSignal(vSig, mSig) =>
+    if vSig > 0.7 and mSig > 0.7
+        1  // Güçlü Alım
+    else if vSig < -0.7 and mSig < -0.7
+        -1 // Güçlü Satım
+    else
+        0  // Nötr
+
+// Her zaman dilimi için sinyal gücünü hesapla
+h1Signal = timeframeSignal(h1VSig, h1MSig)
+h2Signal = timeframeSignal(h2VSig, h2MSig)
+h4Signal = timeframeSignal(h4VSig, h4MSig)
+
+// Zaman dilimleri arası sinyal gücünü birleştir
+overallSignal = h1Signal + h2Signal + h4Signal
+
+// Sinyal eşik değerleri
+buyThreshold  = 2  // Alım için minimum sinyal gücü
+sellThreshold = -2 // Satım için minimum sinyal gücü
+
+// Önceki sinyali saklamak için değişken
+var string previousSignal = "Nötr"
+
+// Anlık sinyali belirle
+currentSignal = overallSignal >= buyThreshold ? "Al" : overallSignal <= sellThreshold ? "Sat" : "Nötr"
+
+// Sinyal değiştiğinde tetikleme
+newSignal = currentSignal != previousSignal
+
+// Sinyal göstergeleri
+buySignal = newSignal and currentSignal == "Al"
+sellSignal = newSignal and currentSignal == "Sat"
+
+// GÜÇLÜ SİNYAL ALARMLARI - BURADA TANIMLANMALIDIR (buySignal ve sellSignal tanımlandıktan sonra)
+alertcondition(condition = enableAlerts and enableStrongSignalAlerts and buySignal, title = "🚀 Güçlü Alım Sinyali", message = "🚀 GÜÇLÜ ALIM SİNYALİ!\n📊 Sembol: {{ticker}}\n⏰ Zaman: {{time}}\n💰 Fiyat: {{close}}\n📈 1H+2H+4H Momentum ve Hacim Pozitif\n⚡ Güçlü alım fırsatı!")
+
+alertcondition(condition = enableAlerts and enableStrongSignalAlerts and sellSignal, title = "📉 Güçlü Satım Sinyali", message = "📉 GÜÇLÜ SATIM SİNYALİ!\n📊 Sembol: {{ticker}}\n⏰ Zaman: {{time}}\n💰 Fiyat: {{close}}\n📉 1H+2H+4H Momentum ve Hacim Negatif\n⚡ Güçlü satım fırsatı!")
+
+// Sinyalleri çiz - MUM BAZLİ KONUM
+plotshape(buySignal, style=shape.arrowup, location=location.belowbar, color=color.lime, size=size.large, title="Güçlü Alım Sinyali")
+plotshape(sellSignal, style=shape.arrowdown, location=location.abovebar, color=color.red, size=size.large, title="Güçlü Satım Sinyali")
+
+// Önceki sinyali güncelle
+previousSignal := currentSignal
+
+// ───────── BİLGİ TABLOSU - 4H TEYİT DURUMU
+//─────────────────────────────────────────────────────────────
+// 4H TEYİT DURUMU BİLGİSİ
+h4Status = h4BullishConfirm ? "🟢 BULLISH" : h4BearishConfirm ? "🔴 BEARISH" : "🟡 NÖTR"
+h4MomStatus = h4MSig > 0 ? "🟢 Pozitif" : h4MSig < 0 ? "🔴 Negatif" : "🟡 Nötr"
+h4VolStatus = h4VSig > 0 ? "🟢 Pozitif" : h4VSig < 0 ? "🔴 Negatif" : "🟡 Nötr"
+overallStatus = finalLong ? "🟢 LONG" : finalShort ? "🔴 SHORT" : "⚪ BEKLİYOR"
+
+// Tablo oluştur (Her bar'da güncellenir)
+var table infoTable = na
+if barstate.islast
+    // Tabloyu sil ve yeniden oluştur
+    if not na(infoTable)
+        table.delete(infoTable)
+    
+    // Yeni tablo oluştur
+    infoTable := table.new(position.top_right, 2, 5, bgcolor=color.new(color.black, 85), border_width=2, border_color=color.white)
+    
+    // Başlık satırı
+    table.cell(infoTable, 0, 0, "📊 4H TEYİT SİSTEMİ", text_color=color.white, text_size=size.normal, bgcolor=color.new(color.blue, 70))
+    table.cell(infoTable, 1, 0, h4Status, text_color=color.white, text_size=size.normal, bgcolor=color.new(color.blue, 70))
+    
+    // Momentum durumu
+    table.cell(infoTable, 0, 1, "📈 4H Momentum", text_color=color.white, text_size=size.small)
+    table.cell(infoTable, 1, 1, h4MomStatus, text_color=color.white, text_size=size.small)
+    
+    // Hacim durumu
+    table.cell(infoTable, 0, 2, "📊 4H Hacim", text_color=color.white, text_size=size.small)
+    table.cell(infoTable, 1, 2, h4VolStatus, text_color=color.white, text_size=size.small)
+    
+    // Final sinyal durumu
+    table.cell(infoTable, 0, 3, "🎯 Final Sinyal", text_color=color.white, text_size=size.small)
+    table.cell(infoTable, 1, 3, overallStatus, text_color=color.white, text_size=size.small)
+    
+    // MTF Doğrulama sayısı
+    mtfInfo = str.tostring(longCount) + " Long / " + str.tostring(shortCount) + " Short"
+    table.cell(infoTable, 0, 4, "🔄 MTF Sayım", text_color=color.white, text_size=size.small)
+    table.cell(infoTable, 1, 4, mtfInfo, text_color=color.white, text_size=size.small)
