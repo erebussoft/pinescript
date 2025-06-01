@@ -91,43 +91,47 @@ def manage_trailing_stops(futures_client, telegram_notifier, active_bot_trades, 
                 elif signal_type == 'short':
                     pnl_ratio = (entry_price - current_price) / entry_price
 
-            if not trade_details.get('trailing_active', False) and config.TRAILING_ONLY_OFFSET_IS_REACHED:
-                if pnl_ratio > config.TRAILING_STOP_POSITIVE_OFFSET:
-                    trade_details['trailing_active'] = True
-                    if signal_type == 'long':
-                        trade_details['highest_price_since_trailing_activation'] = current_price
-                    elif signal_type == 'short':
-                        trade_details['lowest_price_since_trailing_activation'] = current_price
-                    else: # Should not happen if signal_type is validated
-                        trade_details['highest_price_since_trailing_activation'] = current_price
-                        trade_details['lowest_price_since_trailing_activation'] = current_price
+            # TSL aktivasyon mantığı:
+            # Eğer TSL aktif değilse VE TRAILING_STOP_ACTIVATION_PERCENTAGE yapılandırmada mevcutsa VE PNL oranı bu eşiği aştıysa TSL'yi aktif et.
+            if not trade_details.get('trailing_active', False) and \
+               hasattr(config, 'TRAILING_STOP_ACTIVATION_PERCENTAGE') and \
+               pnl_ratio > config.TRAILING_STOP_ACTIVATION_PERCENTAGE:
 
+                trade_details['trailing_active'] = True
+                # Aktivasyon anındaki fiyatı kaydet. Bu, TSL'nin karşılaştırma yapacağı başlangıç noktasıdır.
+                # Long pozisyonlar için, bu andan itibaren daha yüksek fiyatlar bu değeri güncelleyecektir.
+                # Short pozisyonlar için, bu andan itibaren daha düşük fiyatlar bu değeri güncelleyecektir.
+                trade_details['highest_price_since_trailing_activation'] = current_price
+                trade_details['lowest_price_since_trailing_activation'] = current_price
 
-                    logger.info(f"Trailing stop ACTIVATED for {symbol} at P&L ratio: {pnl_ratio:.4f}, Current Price: {current_price}")
-                    telegram_notifier.send_message(f"🟢 Trailing Stop Activated for {symbol}\nSymbol: {symbol}\nDirection: {signal_type.upper()}\nEntry: {entry_price:.4f}\nCurrent Price: {current_price:.4f}\nProfit: {pnl_ratio*100:.2f}%")
+                activation_message = (f"✅ TSL Aktif: {symbol} için takip eden zarar durdurma etkinleştirildi. "
+                                      f"Mevcut Fiyat: {current_price:.4f}, PNL Oranı: {pnl_ratio:.2%}, "
+                                      f"Aktivasyon Eşiği: {config.TRAILING_STOP_ACTIVATION_PERCENTAGE:.2%}")
+                logger.info(activation_message)
+                if telegram_notifier.enabled:
+                    telegram_notifier.send_message(activation_message)
 
-
+            # TSL aktifse yeni SL fiyatını hesapla ve gerekirse güncelle
             if trade_details.get('trailing_active', False):
                 new_potential_sl_price = None
                 if signal_type == 'long':
-                    # Initialize if key doesn't exist
-                    if 'highest_price_since_trailing_activation' not in trade_details:
-                        trade_details['highest_price_since_trailing_activation'] = current_price
-                    else:
-                        trade_details['highest_price_since_trailing_activation'] = max(current_price, trade_details['highest_price_since_trailing_activation'])
+                    # Long pozisyon: En yüksek fiyatı takip et ve SL'yi bunun belirli bir yüzde altında tut.
+                    if current_price > trade_details.get('highest_price_since_trailing_activation', entry_price): # Aktivasyondan (veya girişten) beri yeni bir zirve varsa
+                        trade_details['highest_price_since_trailing_activation'] = current_price # Zirveyi güncelle
 
-                    calculated_sl = trade_details['highest_price_since_trailing_activation'] * (1 - config.TRAILING_STOP_POSITIVE)
-                    if calculated_sl > current_sl_price and calculated_sl > entry_price :
+                    # Yeni potansiyel SL fiyatını hesapla (zirveye göre)
+                    calculated_sl = trade_details['highest_price_since_trailing_activation'] * (1 - config.TRAILING_STOP_DISTANCE_PERCENTAGE)
+                    if calculated_sl > current_sl_price and calculated_sl > entry_price : # Sadece SL fiyatı yukarı hareket ediyorsa (kârı koruyorsa) ve giriş fiyatının üzerindeyse güncelle
                         new_potential_sl_price = calculated_sl
 
                 elif signal_type == 'short':
-                    if 'lowest_price_since_trailing_activation' not in trade_details:
-                        trade_details['lowest_price_since_trailing_activation'] = current_price
-                    else:
-                        trade_details['lowest_price_since_trailing_activation'] = min(current_price, trade_details['lowest_price_since_trailing_activation'])
+                    # Short pozisyon: En düşük fiyatı takip et ve SL'yi bunun belirli bir yüzde üzerinde tut.
+                    if current_price < trade_details.get('lowest_price_since_trailing_activation', entry_price): # Aktivasyondan (veya girişten) beri yeni bir dip varsa
+                        trade_details['lowest_price_since_trailing_activation'] = current_price # Dibi güncelle
 
-                    calculated_sl = trade_details['lowest_price_since_trailing_activation'] * (1 + config.TRAILING_STOP_POSITIVE)
-                    if calculated_sl < current_sl_price and calculated_sl < entry_price:
+                    # Yeni potansiyel SL fiyatını hesapla (dibe göre)
+                    calculated_sl = trade_details['lowest_price_since_trailing_activation'] * (1 + config.TRAILING_STOP_DISTANCE_PERCENTAGE)
+                    if calculated_sl < current_sl_price and calculated_sl < entry_price: # Sadece SL fiyatı aşağı hareket ediyorsa (kârı koruyorsa) ve giriş fiyatının altındaysa güncelle
                         new_potential_sl_price = calculated_sl
 
                 if new_potential_sl_price is not None and sl_order_id:
