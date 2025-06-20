@@ -43,12 +43,11 @@ class TelegramNotifier:
         return None
 
     def notify_trade_entry(self, symbol, direction, entry_price, quantity, stop_loss_price, notes=""):
-        direction_tr = "UZUN" if direction.lower() == "long" else "KISA"
         direction_emoji = "🟢" if direction.lower() == "long" else "🔴"
         message = (
             f"{direction_emoji} **Yeni İşlem Girişi** {direction_emoji}\n\n"
             f"**Sembol:** `{symbol}`\n"
-            f"**Yön:** `{direction_tr}`\n"
+            f"**Yön:** `{direction.upper()}`\n"
             f"**Giriş Fiyatı:** `{entry_price:.4f}`\n" # Hassasiyeti gerektiği gibi ayarlayın
             f"**Miktar:** `{quantity}`\n"
             f"**Zarar Durdurma:** `{stop_loss_price:.4f}`\n"
@@ -58,12 +57,11 @@ class TelegramNotifier:
         return self.send_message(message)
 
     def notify_trade_close(self, symbol, direction, exit_price, entry_price, quantity, pnl, notes=""):
-        direction_tr = "UZUN" if direction.lower() == "long" else "KISA"
         pnl_emoji = "✅" if pnl >= 0 else "❌"
         message = (
             f"{pnl_emoji} **İşlem Kapatıldı** {pnl_emoji}\n\n"
             f"**Sembol:** `{symbol}`\n"
-            f"**Yön:** `{direction_tr}`\n"
+            f"**Yön:** `{direction.upper()}`\n"
             f"**Giriş Fiyatı:** `{entry_price:.4f}`\n"
             f"**Çıkış Fiyatı:** `{exit_price:.4f}`\n"
             f"**Miktar:** `{quantity}`\n"

@@ -94,7 +94,7 @@ def manage_trailing_stops(futures_client, telegram_notifier, redis_client):
             if not trade_details.get('trailing_active', False) and config.TRAILING_ONLY_OFFSET_IS_REACHED:
                 if pnl_ratio > config.TRAILING_STOP_POSITIVE_OFFSET:
                     trade_details['trailing_active'] = True
-                    direction_tr_tsl_act = "UZUN" if signal_type.lower() == "long" else "KISA" # For TSL message
+                    # direction_tr_tsl_act = "UZUN" if signal_type.lower() == "long" else "KISA" # For TSL message # Removed
                     if signal_type == 'long':
                         trade_details['highest_price_since_trailing_activation'] = current_price
                     elif signal_type == 'short':
@@ -108,7 +108,7 @@ def manage_trailing_stops(futures_client, telegram_notifier, redis_client):
                         logger.error(f"Failed to update trade details in Redis for {symbol} after TSL activation.")
                         # Redis'teki durum bu işlem için potansiyel olarak eski olduğundan bir sonraki sembole devam et.
                         continue # Bu döngüde bu sembol için daha fazla işlem yapmayı atla
-                    telegram_notifier.send_message(f"🟢 Takip Eden Zarar Durdurma Aktifleşti ({symbol})\nSembol: {symbol}\nYön: {direction_tr_tsl_act}\nGiriş: {entry_price:.4f}\nMevcut Fiyat: {current_price:.4f}\nKâr: {pnl_ratio*100:.2f}%")
+                    telegram_notifier.send_message(f"🟢 Takip Eden Zarar Durdurma Aktifleşti ({symbol})\nSembol: {symbol}\nYön: {signal_type.upper()}\nGiriş: {entry_price:.4f}\nMevcut Fiyat: {current_price:.4f}\nKâr: {pnl_ratio*100:.2f}%")
 
             if trade_details.get('trailing_active', False):
                 new_potential_sl_price = None
