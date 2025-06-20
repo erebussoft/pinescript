@@ -6,6 +6,7 @@ import time
 import threading # Added for TSL
 # import copy # Not strictly needed if manage_trailing_stops iterates over list(keys)
 from trailing_stop_manager import manage_trailing_stops # Added for TSL
+from redis_client import RedisClient
 from binance_client import BinanceFuturesClient
 from telegram_bot import TelegramNotifier
 
@@ -18,15 +19,28 @@ app = Flask(__name__)
 # Global variables
 futures_client = None
 telegram_notifier = None
-active_bot_trades = {} # Stores active trades managed by this bot instance
+redis_client = None # Add this
+# active_bot_trades = {} # Remove this line
 initialized_symbols_settings = set() # Tracks symbols where leverage/margin have been set this session
 # active_trades_lock = threading.Lock() # Optional: for more complex dict manipulations if needed
 
 def initialize_services():
-    global futures_client, telegram_notifier
+    global futures_client, telegram_notifier, redis_client
     logger.info("Initializing services...")
     telegram_notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID) # Init this first for error reporting
     futures_client = BinanceFuturesClient(config.BINANCE_API_KEY, config.BINANCE_API_SECRET, telegram_notifier)
+
+    redis_client = RedisClient()
+    if not redis_client.is_connected():
+        # This is a critical failure, bot cannot operate without Redis
+        message = "CRITICAL: Failed to connect to Redis. Bot cannot manage trades."
+        logger.error(message)
+        if telegram_notifier and telegram_notifier.enabled:
+            telegram_notifier.notify_error("Bot Service FATAL Error", message)
+        # Depending on desired behavior, you might want to exit or prevent further operation
+        # For now, it will log and attempt to continue, but operations requiring Redis will fail.
+    else:
+        logger.info("Redis client initialized and connected.")
 
     logger.info("Checking Binance connection...")
     balance = futures_client.get_usdt_balance()
@@ -41,9 +55,9 @@ def initialize_services():
     logger.info("Services initialized.")
 
 def handle_trade_signal(data):
-    global futures_client, telegram_notifier, active_bot_trades, initialized_symbols_settings
-    if not futures_client or not telegram_notifier:
-        logger.error("Services not initialized. Cannot handle trade signal.")
+    global futures_client, telegram_notifier, initialized_symbols_settings # active_bot_trades removed
+    if not futures_client or not telegram_notifier or not redis_client: # Added redis_client check
+        logger.error("Services not initialized (or Redis not connected). Cannot handle trade signal.")
         return
 
     signal_type = data['signal_type']
@@ -59,8 +73,8 @@ def handle_trade_signal(data):
         if telegram_notifier.enabled: telegram_notifier.send_message(f"⚠️ {message}")
         return
 
-    if symbol in active_bot_trades:
-        message = f"A trade for {symbol} is already being managed by the bot. Ignoring new {signal_type} signal."
+    if redis_client.get_trade(symbol):
+        message = f"A trade for {symbol} is already being managed (found in Redis). Ignoring new {signal_type} signal."
         logger.warning(message)
         return
 
@@ -134,20 +148,28 @@ def handle_trade_signal(data):
         telegram_notifier.notify_trade_entry(symbol, signal_type, actual_filled_entry_price, quantity, initial_sl_price,
                                              notes=f"Entry Order ID: {entry_order['orderId']}\nSL Order ID: {sl_order['orderId']}")
 
-    active_bot_trades[symbol] = {
+    trade_details = {
         'entry_order_id': entry_order['orderId'],
         'sl_order_id': sl_order['orderId'],
         'current_sl_price': initial_sl_price,
         'entry_price': actual_filled_entry_price,
         'quantity': quantity,
         'signal_type': signal_type,
-        'status': "open",
+        'status': "open", # Initial status
         'trailing_active': False,
         'highest_price_since_trailing_activation': actual_filled_entry_price if signal_type == 'long' else 0.0,
         'lowest_price_since_trailing_activation': actual_filled_entry_price if signal_type == 'short' else float('inf'),
         'timestamp': time.time()
     }
-    logger.info(f"Trade {symbol} added to active_bot_trades. Details: {active_bot_trades[symbol]}")
+    if redis_client.set_trade(symbol, trade_details):
+        logger.info(f"Trade {symbol} details stored in Redis. Details: {trade_details}")
+    else:
+        # This is a critical issue, as the trade is open but not tracked.
+        error_message = f"CRITICAL: Failed to store trade {symbol} in Redis after placing orders. Manual monitoring required."
+        logger.error(error_message)
+        if telegram_notifier.enabled: # Check if notifier is enabled before using
+            telegram_notifier.notify_error("Redis Store Error", error_message)
+        # Consider how to handle this: attempt to cancel orders? For now, log and notify.
 
 
 @app.route('/webhook', methods=['POST'])
@@ -195,12 +217,12 @@ def webhook():
         return jsonify({"status": "error", "message": "Internal server error"}), 500
 
 def trailing_stop_loop():
-    global futures_client, telegram_notifier, active_bot_trades #, active_trades_lock
+    global futures_client, telegram_notifier, redis_client # active_bot_trades removed, redis_client added
     logger.info("Trailing stop manager thread started.")
     while True:
         try:
             # Pass arguments to manage_trailing_stops
-            manage_trailing_stops(futures_client, telegram_notifier, active_bot_trades) # Pass active_trades_lock if using
+            manage_trailing_stops(futures_client, telegram_notifier, redis_client) # Pass redis_client
         except Exception as e:
             logger.error(f"Exception in trailing_stop_loop: {e}", exc_info=True)
             if telegram_notifier and telegram_notifier.enabled:
@@ -216,12 +238,12 @@ if __name__ == "__main__":
     initialize_services() # Initialize global clients
 
     if config.TRAILING_STOP:
-        if futures_client and telegram_notifier: # Ensure clients are initialized before starting TSL
+        if futures_client and telegram_notifier and redis_client and redis_client.is_connected(): # Ensure clients are initialized, and Redis is connected
             ts_thread = threading.Thread(target=trailing_stop_loop, daemon=True)
             ts_thread.start()
             logger.info(f"Trailing stop manager thread initiated (check interval: {config.TRAILING_STOP_CHECK_INTERVAL_SECONDS}s).")
         else:
-            logger.error("Cannot start Trailing Stop Manager: Binance client or Telegram notifier not initialized.")
+            logger.error("Cannot start Trailing Stop Manager: Binance client, Telegram notifier, or Redis client not initialized/connected.")
 
     # Use Gunicorn or Waitress for production
     app.run(host='0.0.0.0', port=5000, debug=False) # debug=False for production

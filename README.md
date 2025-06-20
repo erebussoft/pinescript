@@ -19,7 +19,7 @@ This Python-based bot listens for webhook signals from TradingView alerts and au
     -   Trailing stop activation and updates.
     -   Trade closures (detected by TSL manager if position disappears from Binance).
     -   Errors and critical warnings.
--   In-memory state management for active trades (note: volatile, lost on restart).
+-   Persistent state management for active trades using Redis (ensures data like TSL status, entry prices, etc., survive bot restarts).
 -   Configurable trading parameters via \`config.py\`.
 
 ## Setup and Configuration
@@ -35,7 +35,7 @@ This Python-based bot listens for webhook signals from TradingView alerts and au
     \`\`\`bash
     python -m venv venv
     source venv/bin/activate  # On Windows: venv\Scripts\activate
-    pip install -r requirements.txt
+    pip install -r requirements.txt # Ensure redis is in your requirements.txt
     \`\`\`
 
 3.  **Configure the Bot (\`config.py\`):**
@@ -54,7 +54,15 @@ This Python-based bot listens for webhook signals from TradingView alerts and au
             -   \`TRAILING_STOP_CHECK_INTERVAL_SECONDS = 60\`: How often the bot checks to update trailing stops. See API Rate Limit warning below.
         -   Review and adjust other parameters like \`STOP_LOSS\` (initial stop), \`TRADABLE_BALANCE_RATIO\`, \`MAX_OPEN_TRADES\`, etc.
 
-4.  **Configure TradingView Alerts:**
+4.  **Redis Configuration (New Requirement):**
+    -   The application now uses Redis for persistent storage of active trade data. This ensures that trade states (like TSL activation, current SL price, etc.) are not lost if the bot restarts.
+    -   **`REDIS_URL` Environment Variable**: You must set the `REDIS_URL` environment variable for the application to connect to your Redis instance.
+        -   Example format: \`redis://[:password@]host:port/0\`
+        -   **For Heroku**: This is typically configured by adding a Redis add-on (e.g., Heroku Data for Redis or Redis Cloud). The `REDIS_URL` will be automatically set in your Heroku app's config vars.
+        -   **For local development**: You can set this environment variable directly (e.g., \`export REDIS_URL=redis://localhost:6379/0\`) or, if your `config.py` is adapted to use a \`.env\` file, define it there. Alternatively, you can temporarily set \`config.REDIS_URL = "redis://localhost:6379/0"\` in \`config.py\` for local testing if a Redis server is running locally.
+    -   **`REDIS_DB` (Optional)**: The \`config.py\` file allows specifying \`REDIS_DB\` (defaulting to 0). For most cloud Redis providers (like Heroku Add-ons), the database number is often part of the `REDIS_URL` itself, or it defaults to the correct one, so you might not need to change this.
+
+5.  **Configure TradingView Alerts:**
     -   Set up your alerts in TradingView on the chart interval specified in \`config.EXPECTED_WEBHOOK_INTERVAL\` (e.g., **15-minute chart** if \`EXPECTED_WEBHOOK_INTERVAL = "15"\`).
     -   The alert condition should be based on your PineScript indicator's specific signals (e.g., "4H Confirmed Long" or "4H Confirmed Short" signal names, even if the chart is 15-min). The indicator's internal logic using \`request.security\` for 4H data will still apply, but the alert itself triggers on the 15-min candle's close if the 4H conditions are met at that point.
     -   **Webhook URL**: Update this in each TradingView alert to point to your server's public address (e.g., \`http://<your_heroku_app_name>.herokuapp.com/webhook\` or \`http://<your_server_ip>:5000/webhook\`).
@@ -90,7 +98,7 @@ This Python-based bot listens for webhook signals from TradingView alerts and au
 -   **Trailing Stops (TSL):**
     -   The programmatic TSL feature is now implemented. It activates after a profit offset and trails the price by a set percentage.
     -   **Critical Risk with TSL**: The process of cancelling an old stop-loss and placing a new one has a small window of risk. If placing the new SL fails after the old one is cancelled, the position could be momentarily unprotected. The bot has error handling for this, but it's a critical scenario to be aware of.
--   **State Management:** Active trades are stored in memory. If the bot restarts, this state (including TSL activation status and peak prices) is lost. For persistent state, a database would be required.
+-   **State Management:** Active trade data (including TSL status, entry prices, current SL prices, etc.) is now stored persistently in Redis. This means if the bot restarts, it can pick up and manage existing trades correctly.
 -   **Error Handling:** Monitor bot logs and Telegram notifications closely.
 -   **Actual Fill Prices**: The bot currently uses the target entry price from the webhook for P&L calculations and initial TSL tracking. For higher accuracy, querying the actual fill price of entry orders is a recommended future enhancement (marked as TODO in code).
 

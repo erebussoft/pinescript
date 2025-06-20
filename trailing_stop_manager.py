@@ -5,33 +5,37 @@ import time
 # These will be passed as arguments to manage_trailing_stops function.
 from binance.enums import * # For FUTURE_ORDER_TYPE_STOP_MARKET, SIDE_SELL, SIDE_BUY
 from binance.exceptions import BinanceAPIException
-import copy # For safely iterating over active_bot_trades
+# import copy # Removed as we fetch from Redis
 
 logger = logging.getLogger(__name__)
 
-def manage_trailing_stops(futures_client, telegram_notifier, active_bot_trades, active_trades_lock=None):
-    # active_trades_lock is optional, for more complex scenarios.
-    # Python dict operations are largely atomic, but for multi-step read-modify-write, a lock is safer.
-    # For iterating and simple checks/deletions, copy.deepcopy or list(dict.items()) is often sufficient.
+def manage_trailing_stops(futures_client, telegram_notifier, redis_client):
+    # active_trades_lock is removed as Redis operations on single keys are generally atomic.
 
     if not config.TRAILING_STOP or not futures_client:
         logger.debug("Trailing stop is disabled in config or futures_client not available.")
         return
 
-    logger.debug(f"Checking trailing stops for {len(active_bot_trades)} active trades...")
+    logger.debug("Querying active trade symbols from Redis for TSL management...")
 
-    # Use a deep copy of items for safe iteration if modifications occur
-    # Or iterate over keys and fetch/delete carefully.
-    # active_trades_copy = copy.deepcopy(active_bot_trades) # Needs import copy; deepcopy might be overkill if objects are simple.
+    if not redis_client or not redis_client.is_connected():
+        logger.error("Redis client not available or not connected in TSL manager. Skipping TSL cycle.")
+        return
 
-    # Iterate over a list of symbol keys to allow modification of the dict
-    for symbol in list(active_bot_trades.keys()):
-        if symbol not in active_bot_trades: # Check if trade was removed by another part of the logic or previous iteration
+    active_trade_symbols = redis_client.get_all_trade_symbols()
+    if not active_trade_symbols:
+        logger.debug("No active trades found in Redis to manage.")
+        return
+    logger.info(f"Found {len(active_trade_symbols)} active trades in Redis to manage: {active_trade_symbols}")
+
+    for symbol in active_trade_symbols:
+        trade_details = redis_client.get_trade(symbol)
+        if not trade_details:
+            logger.warning(f"Could not retrieve trade details for symbol {symbol} from Redis, or it was deleted. Skipping.")
             continue
 
-        trade_details = active_bot_trades[symbol]
-
         if trade_details.get('status') != "open":
+            logger.debug(f"Trade {symbol} is not open (status: {trade_details.get('status')}). Skipping TSL.")
             continue
 
         try:
@@ -66,11 +70,7 @@ def manage_trailing_stops(futures_client, telegram_notifier, active_bot_trades, 
                     notes="Position appears closed on Binance (detected by TSL manager)."
                 )
                 # Safely delete the key
-                if active_trades_lock:
-                    with active_trades_lock:
-                        if symbol in active_bot_trades: del active_bot_trades[symbol]
-                else:
-                    if symbol in active_bot_trades: del active_bot_trades[symbol]
+                redis_client.delete_trade(symbol)
                 continue
 
             current_price = float(position_info.get('markPrice', 0))
@@ -99,35 +99,45 @@ def manage_trailing_stops(futures_client, telegram_notifier, active_bot_trades, 
                     elif signal_type == 'short':
                         trade_details['lowest_price_since_trailing_activation'] = current_price
                     else: # Should not happen if signal_type is validated
-                        trade_details['highest_price_since_trailing_activation'] = current_price
-                        trade_details['lowest_price_since_trailing_activation'] = current_price
-
+                        trade_details['highest_price_since_trailing_activation'] = current_price # Defaulting, but should be one or the other
+                        trade_details['lowest_price_since_trailing_activation'] = current_price  # Defaulting
 
                     logger.info(f"Trailing stop ACTIVATED for {symbol} at P&L ratio: {pnl_ratio:.4f}, Current Price: {current_price}")
+                    if not redis_client.set_trade(symbol, trade_details):
+                        logger.error(f"Failed to update trade details in Redis for {symbol} after TSL activation.")
+                        # Continue to next symbol, as the state in Redis is now potentially stale for this trade.
+                        continue # Skip further processing for this symbol in this cycle
                     telegram_notifier.send_message(f"🟢 Trailing Stop Activated for {symbol}\nSymbol: {symbol}\nDirection: {signal_type.upper()}\nEntry: {entry_price:.4f}\nCurrent Price: {current_price:.4f}\nProfit: {pnl_ratio*100:.2f}%")
-
 
             if trade_details.get('trailing_active', False):
                 new_potential_sl_price = None
                 if signal_type == 'long':
                     # Initialize if key doesn't exist
-                    if 'highest_price_since_trailing_activation' not in trade_details:
-                        trade_details['highest_price_since_trailing_activation'] = current_price
-                    else:
-                        trade_details['highest_price_since_trailing_activation'] = max(current_price, trade_details['highest_price_since_trailing_activation'])
+                    # Initialize if key doesn't exist, or update
+                    previous_highest = trade_details.get('highest_price_since_trailing_activation', current_price)
+                    trade_details['highest_price_since_trailing_activation'] = max(current_price, previous_highest)
+
+                    # Persist updated highest price if it changed, even if SL doesn't move yet
+                    if trade_details['highest_price_since_trailing_activation'] != previous_highest:
+                        if not redis_client.set_trade(symbol, trade_details):
+                            logger.warning(f"Failed to update highest_price_since_trailing_activation for {symbol} in Redis. TSL calculations might use stale data if restarted.")
+                            # Not continuing here, as the rest of the logic can proceed with the in-memory update for this cycle
 
                     calculated_sl = trade_details['highest_price_since_trailing_activation'] * (1 - config.TRAILING_STOP_POSITIVE)
-                    if calculated_sl > current_sl_price and calculated_sl > entry_price :
+                    if calculated_sl > current_sl_price and calculated_sl > entry_price : # Ensure SL is also above entry
                         new_potential_sl_price = calculated_sl
 
                 elif signal_type == 'short':
-                    if 'lowest_price_since_trailing_activation' not in trade_details:
-                        trade_details['lowest_price_since_trailing_activation'] = current_price
-                    else:
-                        trade_details['lowest_price_since_trailing_activation'] = min(current_price, trade_details['lowest_price_since_trailing_activation'])
+                    previous_lowest = trade_details.get('lowest_price_since_trailing_activation', current_price)
+                    trade_details['lowest_price_since_trailing_activation'] = min(current_price, previous_lowest)
+
+                    # Persist updated lowest price if it changed
+                    if trade_details['lowest_price_since_trailing_activation'] != previous_lowest:
+                        if not redis_client.set_trade(symbol, trade_details):
+                             logger.warning(f"Failed to update lowest_price_since_trailing_activation for {symbol} in Redis. TSL calculations might use stale data if restarted.")
 
                     calculated_sl = trade_details['lowest_price_since_trailing_activation'] * (1 + config.TRAILING_STOP_POSITIVE)
-                    if calculated_sl < current_sl_price and calculated_sl < entry_price:
+                    if calculated_sl < current_sl_price and calculated_sl < entry_price: # Ensure SL is also below entry
                         new_potential_sl_price = calculated_sl
 
                 if new_potential_sl_price is not None and sl_order_id:
@@ -171,36 +181,26 @@ def manage_trailing_stops(futures_client, telegram_notifier, active_bot_trades, 
                             trade_details['sl_order_id'] = new_sl_order_direct['orderId']
                             trade_details['current_sl_price'] = adjusted_new_sl_price
                             logger.info(f"New TSL order for {symbol} placed. ID: {new_sl_order_direct['orderId']}, Price: {adjusted_new_sl_price}")
+                            if not redis_client.set_trade(symbol, trade_details):
+                                logger.error(f"CRITICAL: Failed to update trade {symbol} in Redis with new TSL order ID {new_sl_order_direct['orderId']}. State mismatch possible.")
                             telegram_notifier.send_message(f"⚙️ Trailing SL Updated for {symbol}\nSymbol: {symbol}\nNew SL Price: {adjusted_new_sl_price:.4f}")
                         else:
                             logger.error(f"CRITICAL: Old SL for {symbol} cancelled but FAILED to place new TSL order at {adjusted_new_sl_price}. POSITION IS UNPROTECTED.")
                             telegram_notifier.notify_error(f"CRITICAL TSL Error: {symbol}", f"Old SL cancelled, new TSL FAILED. POS UNPROTECTED. Attempted SL: {adjusted_new_sl_price:.4f}. Manual intervention required!")
-                            if symbol in active_bot_trades: # Remove from active management
-                                if active_trades_lock:
-                                    with active_trades_lock: del active_bot_trades[symbol]
-                                else:
-                                    del active_bot_trades[symbol]
+                            redis_client.delete_trade(symbol) # Remove from active management
 
                     except BinanceAPIException as cancel_e:
                         logger.error(f"Failed to cancel old SL order {sl_order_id} for {symbol} during TSL update: {cancel_e}")
                         if cancel_e.code == -2011: # Order already filled or cancelled
                              logger.info(f"Old SL {sl_order_id} for {symbol} was already filled/cancelled. Removing from TSL management.")
-                             if symbol in active_bot_trades:
-                                 if active_trades_lock:
-                                     with active_trades_lock: del active_bot_trades[symbol]
-                                 else:
-                                     del active_bot_trades[symbol]
+                             redis_client.delete_trade(symbol)
                         # else, do not place new SL to avoid multiple SLs. Will retry next cycle.
 
         except BinanceAPIException as e:
             logger.error(f"Binance API Error managing TSL for {symbol}: {e}", exc_info=False) # Set exc_info=False for less verbose logs for common API errors
             if e.code == -2011 and trade_details.get('sl_order_id'): # Unknown order sent. (e.g. SL already cancelled / filled)
                 logger.warning(f"SL Order for {symbol} (ID: {trade_details['sl_order_id']}) likely filled or already cancelled. Removing from TSL management.")
-                if symbol in active_bot_trades:
-                    if active_trades_lock:
-                        with active_trades_lock: del active_bot_trades[symbol]
-                    else:
-                        del active_bot_trades[symbol]
+                redis_client.delete_trade(symbol)
             # Consider more specific error handling or less frequent notifications for non-critical API errors here
         except Exception as e:
             logger.error(f"Generic Error managing TSL for {symbol}: {e}", exc_info=True)
