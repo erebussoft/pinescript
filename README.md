@@ -1,107 +1,107 @@
-# TradingView Webhook Bot for Binance Futures
+# Binance Futures için TradingView Webhook Botu
 
-This Python-based bot listens for webhook signals from TradingView alerts and automatically places trades on Binance Futures. It includes features for position sizing, stop-loss orders, leverage and margin type setting, programmatic trailing stops, and Telegram notifications.
+Bu Python tabanlı bot, TradingView uyarılarından gelen webhook sinyallerini dinler ve Binance Futures üzerinde otomatik olarak işlem yapar. Pozisyon boyutlandırma, zarar durdurma emirleri, kaldıraç ve marjin türü ayarı, programatik takip eden zarar durdurma (TSL) ve Telegram bildirimleri gibi özellikleri içerir.
 
-## Features
+## Özellikler
 
--   Receives trade signals (long/short) from TradingView via webhooks.
--   Integrates with Binance Futures API to place trades.
--   Sets specified leverage (e.g., 10x) and margin type (e.g., ISOLATED) for each symbol before trading.
--   Calculates position size based on tradable balance ratio and max open trades.
--   Automatically places entry orders (LIMIT by default) and corresponding STOP_MARKET stop-loss orders.
--   Programmatic Trailing Stop Loss (TSL):
-    -   Activates after a defined profit offset is reached.
-    -   Trails the price by a configured percentage, adjusting the stop-loss order on Binance.
-    -   Runs in a background thread, periodically checking active trades.
--   Sends real-time notifications to a Telegram channel for:
-    -   Bot startup
-    -   Trade entries (symbol, direction, price, quantity, SL)
-    -   Trailing stop activation and updates.
-    -   Trade closures (detected by TSL manager if position disappears from Binance).
-    -   Errors and critical warnings.
--   Persistent state management for active trades using Redis (ensures data like TSL status, entry prices, etc., survive bot restarts).
--   Configurable trading parameters via \`config.py\`.
+-   TradingView'den webhook aracılığıyla işlem sinyallerini (uzun/kısa) alır.
+-   İşlem yapmak için Binance Futures API ile entegre olur.
+-   İşlem yapmadan önce her sembol için belirtilen kaldıracı (örneğin, 10x) ve marjin türünü (örneğin, İZOLE) ayarlar.
+-   Ticaret yapılabilir bakiye oranına ve maksimum açık işlem sayısına göre pozisyon büyüklüğünü hesaplar.
+-   Giriş emirlerini (varsayılan olarak LIMIT) ve karşılık gelen STOP_MARKET zarar durdurma emirlerini otomatik olarak verir.
+-   Programatik Takip Eden Zarar Durdurma (TSL):
+    -   Belirlenen bir kâr ofsetine ulaşıldıktan sonra etkinleşir.
+    -   Fiyatı yapılandırılmış bir yüzdeyle takip ederek Binance'teki zarar durdurma emrini ayarlar.
+    -   Arka plan iş parçacığında çalışır, aktif işlemleri periyodik olarak kontrol eder.
+-   Aşağıdakiler için bir Telegram kanalına gerçek zamanlı bildirimler gönderir:
+    -   Bot başlatma
+    -   İşlem girişleri (sembol, yön, fiyat, miktar, ZD)
+    -   Takip eden zarar durdurma aktivasyonu ve güncellemeleri.
+    -   İşlem kapanışları (pozisyon Binance'ten kaybolursa TSL yöneticisi tarafından algılanır).
+    -   Hatalar ve kritik uyarılar.
+-   Aktif işlemler için kalıcı durum yönetimi Redis kullanılarak sağlanır (TSL durumu, giriş fiyatları vb. verilerin bot yeniden başlasa bile kaybolmamasını sağlar).
+-   `config.py` aracılığıyla yapılandırılabilir ticaret parametreleri.
 
-## Setup and Configuration
+## Kurulum ve Yapılandırma
 
-1.  **Clone the Repository:**
-    \`\`\`bash
-    git clone <your_repository_url>
-    cd <repository_directory>
-    \`\`\`
+1.  **Depoyu Klonlayın:**
+    ```bash
+    git clone <deponuzun_url_adresi>
+    cd <depo_dizini>
+    ```
 
-2.  **Install Dependencies:**
-    Create a Python virtual environment and install the required packages:
-    \`\`\`bash
+2.  **Bağımlılıkları Yükleyin:**
+    Bir Python sanal ortamı oluşturun ve gerekli paketleri yükleyin:
+    ```bash
     python -m venv venv
-    source venv/bin/activate  # On Windows: venv\Scripts\activate
-    pip install -r requirements.txt # Ensure redis is in your requirements.txt
-    \`\`\`
+    source venv/bin/activate  # Windows'ta: venv\Scripts\activate
+    pip install -r requirements.txt # requirements.txt dosyanızda redis olduğundan emin olun
+    ```
 
-3.  **Configure the Bot (\`config.py\`):**
-    -   Edit \`config.py\` and fill in your details:
-        -   \`BINANCE_API_KEY\`, \`BINANCE_API_SECRET\`: Your Binance API credentials.
-            *   **Security Note:** Ensure API keys have Futures trading permissions enabled. Withdrawal permissions should be disabled for security.
-        -   \`TELEGRAM_BOT_TOKEN\`, \`TELEGRAM_CHAT_ID\`: Your Telegram bot details.
-        -   \`TRADING_PAIRS\`: Update with all Binance Futures symbols you intend to trade.
-        -   **New/Updated Parameters**:
-            -   \`LEVERAGE = 10\`: Set your desired leverage (e.g., 10 for 10x).
-            -   \`MARGIN_TYPE = "ISOLATED"\`: Typically "ISOLATED" or "CROSSED".
-            -   \`EXPECTED_WEBHOOK_INTERVAL = "15"\`: **Crucial.** This must match the chart interval of your TradingView alerts (e.g., "15" for 15-minute, "60" for 1-hour).
-            -   \`TRAILING_STOP = True\`: Set to \`True\` to enable the programmatic trailing stop feature.
-            -   \`TRAILING_STOP_POSITIVE_OFFSET = 0.009\`: Profit offset (e.g., 0.9%) to activate the trailing stop.
-            -   \`TRAILING_STOP_POSITIVE = 0.008\`: Percentage (e.g., 0.8%) by which the stop loss will trail the peak price.
-            -   \`TRAILING_STOP_CHECK_INTERVAL_SECONDS = 60\`: How often the bot checks to update trailing stops. See API Rate Limit warning below.
-        -   Review and adjust other parameters like \`STOP_LOSS\` (initial stop), \`TRADABLE_BALANCE_RATIO\`, \`MAX_OPEN_TRADES\`, etc.
+3.  **Botu Yapılandırın (`config.py`):**
+    -   `config.py` dosyasını düzenleyin ve bilgilerinizi girin:
+        -   `BINANCE_API_KEY`, `BINANCE_API_SECRET`: Binance API kimlik bilgileriniz.
+            *   **Güvenlik Notu:** API anahtarlarının Vadeli İşlemler ticaret izinlerinin etkinleştirildiğinden emin olun. Güvenlik nedeniyle para çekme izinleri devre dışı bırakılmalıdır.
+        -   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`: Telegram bot bilgileriniz.
+        -   `TRADING_PAIRS`: İşlem yapmayı düşündüğünüz tüm Binance Futures sembolleriyle güncelleyin.
+        -   **Yeni/Güncellenmiş Parametreler**:
+            -   `LEVERAGE = 10`: İstediğiniz kaldıracı ayarlayın (örneğin, 10x için 10).
+            -   `MARGIN_TYPE = "ISOLATED"`: Genellikle "ISOLATED" (İZOLE) veya "CROSSED" (ÇAPRAZ).
+            -   `EXPECTED_WEBHOOK_INTERVAL = "15m"`: **Çok Önemli.** Bu, TradingView uyarılarınızın grafik aralığıyla eşleşmelidir (örneğin, 15 dakikalık için "15m", 1 saatlik için "1h"). (Not: `config.py` dosyasındaki bu değer `15m` gibi bir zaman birimi içermelidir, sadece sayı değil.)
+            -   `TRAILING_STOP = True`: Programatik takip eden zarar durdurma özelliğini etkinleştirmek için `True` olarak ayarlayın.
+            -   `TRAILING_STOP_POSITIVE_OFFSET = 0.009`: Takip eden zarar durdurmayı etkinleştirmek için kâr ofseti (örneğin, %0.9).
+            -   `TRAILING_STOP_POSITIVE = 0.008`: Zarar durdurmanın tepe fiyatını takip edeceği yüzde (örneğin, %0.8).
+            -   `TRAILING_STOP_CHECK_INTERVAL_SECONDS = 60`: Botun takip eden zarar durdurmaları ne sıklıkta kontrol edip güncelleyeceği. Aşağıdaki API Hız Limiti uyarısına bakın.
+        -   `STOP_LOSS` (başlangıçtaki zarar durdurma), `TRADABLE_BALANCE_RATIO`, `MAX_OPEN_TRADES` gibi diğer parametreleri gözden geçirin ve ayarlayın.
 
-4.  **Redis Configuration (New Requirement):**
-    -   The application now uses Redis for persistent storage of active trade data. This ensures that trade states (like TSL activation, current SL price, etc.) are not lost if the bot restarts.
-    -   **`REDIS_URL` Environment Variable**: You must set the `REDIS_URL` environment variable for the application to connect to your Redis instance.
-        -   Example format: \`redis://[:password@]host:port/0\`
-        -   **For Heroku**: This is typically configured by adding a Redis add-on (e.g., Heroku Data for Redis or Redis Cloud). The `REDIS_URL` will be automatically set in your Heroku app's config vars.
-        -   **For local development**: You can set this environment variable directly (e.g., \`export REDIS_URL=redis://localhost:6379/0\`) or, if your `config.py` is adapted to use a \`.env\` file, define it there. Alternatively, you can temporarily set \`config.REDIS_URL = "redis://localhost:6379/0"\` in \`config.py\` for local testing if a Redis server is running locally.
-    -   **`REDIS_DB` (Optional)**: The \`config.py\` file allows specifying \`REDIS_DB\` (defaulting to 0). For most cloud Redis providers (like Heroku Add-ons), the database number is often part of the `REDIS_URL` itself, or it defaults to the correct one, so you might not need to change this.
+4.  **Redis Yapılandırması (Yeni Gereksinim):**
+    -   Uygulama artık aktif işlem verilerinin kalıcı olarak saklanması için Redis kullanmaktadır. Bu, TSL aktivasyonu, mevcut ZD fiyatı vb. işlem durumlarının bot yeniden başlarsa kaybolmamasını sağlar.
+    -   **`REDIS_URL` Ortam Değişkeni**: Uygulamanın Redis örneğinize bağlanması için `REDIS_URL` ortam değişkenini ayarlamanız gerekir.
+        -   Örnek format: `redis://[:şifre@]sunucu:port/0`
+        -   **Heroku için**: Bu genellikle bir Redis eklentisi (örneğin, Heroku Data for Redis veya Redis Cloud) eklenerek yapılandırılır. `REDIS_URL`, Heroku uygulamanızın yapılandırma değişkenlerinde otomatik olarak ayarlanacaktır.
+        -   **Yerel geliştirme için**: Bu ortam değişkenini doğrudan ayarlayabilir (örneğin, `export REDIS_URL=redis://localhost:6379/0`) veya `config.py` dosyanız bir `.env` dosyası kullanacak şekilde uyarlanmışsa orada tanımlayabilirsiniz. Alternatif olarak, yerel bir Redis sunucusu çalışıyorsa yerel test için `config.py` dosyasında geçici olarak `config.REDIS_URL = "redis://localhost:6379/0"` ayarlayabilirsiniz.
+    -   **`REDIS_DB` (İsteğe Bağlı)**: `config.py` dosyası, `REDIS_DB` belirtmenize olanak tanır (varsayılan olarak 0). Çoğu bulut Redis sağlayıcısı (Heroku Eklentileri gibi) için veritabanı numarası genellikle `REDIS_URL`'nin bir parçasıdır veya doğru olana varsayılan olarak ayarlanır, bu nedenle bunu değiştirmeniz gerekmeyebilir.
 
-5.  **Configure TradingView Alerts:**
-    -   Set up your alerts in TradingView on the chart interval specified in \`config.EXPECTED_WEBHOOK_INTERVAL\` (e.g., **15-minute chart** if \`EXPECTED_WEBHOOK_INTERVAL = "15"\`).
-    -   The alert condition should be based on your PineScript indicator's specific signals (e.g., "4H Confirmed Long" or "4H Confirmed Short" signal names, even if the chart is 15-min). The indicator's internal logic using \`request.security\` for 4H data will still apply, but the alert itself triggers on the 15-min candle's close if the 4H conditions are met at that point.
-    -   **Webhook URL**: Update this in each TradingView alert to point to your server's public address (e.g., \`http://<your_heroku_app_name>.herokuapp.com/webhook\` or \`http://<your_server_ip>:5000/webhook\`).
-    -   Ensure the JSON payload in the TradingView alert's "Message" field is correctly formatted as previously specified.
+5.  **TradingView Uyarılarını Yapılandırın:**
+    -   TradingView'de uyarılarınızı `config.EXPECTED_WEBHOOK_INTERVAL` içinde belirtilen grafik aralığında ayarlayın (örneğin, `EXPECTED_WEBHOOK_INTERVAL = "15m"` ise **15 dakikalık grafik**).
+    -   Uyarı koşulu, PineScript göstergenizin belirli sinyallerine dayanmalıdır (örneğin, grafik 15 dakikalık olsa bile "4S Teyitli Uzun" veya "4S Teyitli Kısa" sinyal adları). Göstergenin 4S verileri için `request.security` kullanan dahili mantığı yine geçerli olacaktır, ancak uyarının kendisi, o noktada 4S koşulları karşılanırsa 15 dakikalık mumun kapanışında tetiklenir.
+    -   **Webhook URL'si**: Her TradingView uyarısında bunu sunucunuzun genel adresine işaret edecek şekilde güncelleyin (örneğin, `http://<heroku_uygulama_adınız>.herokuapp.com/webhook` veya `http://<sunucu_ip_adresiniz>:5000/webhook`).
+    -   TradingView uyarısının "Mesaj" alanındaki JSON yükünün daha önce belirtildiği gibi doğru biçimlendirildiğinden emin olun.
 
-## Running the Bot
+## Botu Çalıştırma
 
-### Locally (for development/testing)
+### Yerel Olarak (geliştirme/test için)
 
-1.  Ensure your virtual environment is activated.
-2.  Run the bot:
-    \`\`\`bash
+1.  Sanal ortamınızın etkinleştirildiğinden emin olun.
+2.  Botu çalıştırın:
+    ```bash
     python main.py
-    \`\`\`
-    The bot will start, initialize services, start the TSL thread (if enabled), and listen for webhooks.
+    ```
+    Bot başlayacak, servisleri başlatacak, TSL iş parçacığını (etkinse) başlatacak ve webhook'ları dinleyecektir.
 
-### Deployment (Example: Heroku)
+### Dağıtım (Örnek: Heroku)
 
-1.  **Install Heroku CLI** and log in.
-2.  **Create a Heroku app.**
-3.  **Add your code to Git and deploy.** The \`Procfile\` (\`web: gunicorn main:app\`) is included.
-4.  **Set Config Vars on Heroku:** For security, set sensitive information (API keys, tokens) as environment variables on Heroku. Modify \`config.py\` to read these from \`os.environ.get(...)\` if you use this method.
-5.  **Check Logs:** Use \`heroku logs --tail\`.
+1.  **Heroku CLI'yi yükleyin** ve giriş yapın.
+2.  **Bir Heroku uygulaması oluşturun.**
+3.  **Kodunuzu Git'e ekleyin ve dağıtın.** `Procfile` (`web: gunicorn main:app`) dahildir.
+4.  **Heroku'da Yapılandırma Değişkenlerini Ayarlayın:** Güvenlik için hassas bilgileri (API anahtarları, jetonlar) Heroku'da ortam değişkenleri olarak ayarlayın. Bu yöntemi kullanıyorsanız `config.py` dosyasını bunları `os.environ.get(...)` üzerinden okuyacak şekilde değiştirin.
+5.  **Günlükleri Kontrol Edin:** `heroku logs --tail` kullanın.
 
-## Important Notes
+## Önemli Notlar
 
--   **Risk Management:** Trading futures involves significant risk. This bot is a tool, not a financial advisor. Understand the risks and the bot's logic before using real funds. **Always test thoroughly on Binance Testnet first.**
--   **Binance API Rate Limits:**
-    -   Be extremely mindful of API rate limits, especially with the trailing stop feature.
-    -   The \`TRAILING_STOP_CHECK_INTERVAL_SECONDS\` parameter determines how often the bot checks prices and potentially updates SL orders for **each active trade**.
-    -   Setting this interval too low (e.g., 5-10 seconds) with multiple active trades can **quickly lead to IP bans or temporary API restrictions** from Binance.
-    -   A safer range is typically 30-300 seconds, depending on the number of concurrent trades. Monitor bot logs and Binance API usage.
--   **Trailing Stops (TSL):**
-    -   The programmatic TSL feature is now implemented. It activates after a profit offset and trails the price by a set percentage.
-    -   **Critical Risk with TSL**: The process of cancelling an old stop-loss and placing a new one has a small window of risk. If placing the new SL fails after the old one is cancelled, the position could be momentarily unprotected. The bot has error handling for this, but it's a critical scenario to be aware of.
--   **State Management:** Active trade data (including TSL status, entry prices, current SL prices, etc.) is now stored persistently in Redis. This means if the bot restarts, it can pick up and manage existing trades correctly.
--   **Error Handling:** Monitor bot logs and Telegram notifications closely.
--   **Actual Fill Prices**: The bot currently uses the target entry price from the webhook for P&L calculations and initial TSL tracking. For higher accuracy, querying the actual fill price of entry orders is a recommended future enhancement (marked as TODO in code).
+-   **Risk Yönetimi:** Vadeli işlemler önemli risk içerir. Bu bot bir araçtır, finansal danışman değildir. Gerçek fonları kullanmadan önce riskleri ve botun mantığını anlayın. **Her zaman önce Binance Testnet'te kapsamlı bir şekilde test edin.**
+-   **Binance API Hız Limitleri:**
+    -   Özellikle takip eden zarar durdurma özelliğiyle API hız limitlerine son derece dikkat edin.
+    -   `TRAILING_STOP_CHECK_INTERVAL_SECONDS` parametresi, botun fiyatları ne sıklıkta kontrol ettiğini ve **her aktif işlem** için potansiyel olarak ZD emirlerini güncellediğini belirler.
+    -   Bu aralığı çok düşük ayarlamak (örneğin, 5-10 saniye) birden fazla aktif işlemle birlikte Binance tarafından **hızla IP yasaklarına veya geçici API kısıtlamalarına** yol açabilir.
+    -   Daha güvenli bir aralık genellikle eşzamanlı işlem sayısına bağlı olarak 30-300 saniyedir. Bot günlüklerini ve Binance API kullanımını izleyin.
+-   **Takip Eden Zarar Durdurmalar (TSL):**
+    -   Programatik TSL özelliği artık uygulanmıştır. Bir kâr ofsetinden sonra etkinleşir ve fiyatı belirli bir yüzdeyle takip eder.
+    -   **TSL ile Kritik Risk**: Eski bir zarar durdurmayı iptal etme ve yenisini yerleştirme işlemi küçük bir risk penceresine sahiptir. Eskisi iptal edildikten sonra yeni ZD yerleştirme başarısız olursa, pozisyon anlık olarak korumasız kalabilir. Botun bunun için hata yönetimi vardır, ancak farkında olunması gereken kritik bir senaryodur.
+-   **Durum Yönetimi:** Aktif işlem verileri (TSL durumu, giriş fiyatları, mevcut ZD fiyatları vb. dahil) artık Redis'te kalıcı olarak saklanmaktadır. Bu, bot yeniden başlarsa mevcut işlemleri doğru bir şekilde alıp yönetebileceği anlamına gelir.
+-   **Hata Yönetimi:** Bot günlüklerini ve Telegram bildirimlerini yakından izleyin.
+-   **Gerçekleşen Dolum Fiyatları**: Bot şu anda P&L hesaplamaları ve başlangıç TSL takibi için webhook'tan gelen hedef giriş fiyatını kullanmaktadır. Daha yüksek doğruluk için, giriş emirlerinin gerçek dolum fiyatını sorgulamak, önerilen bir gelecekteki geliştirmedir (kodda TODO olarak işaretlenmiştir).
 
-## Disclaimer
+## Sorumluluk Reddi
 
-The developers of this bot are not responsible for any financial losses incurred through its use. Use at your own risk.
+Bu botun geliştiricileri, kullanımından kaynaklanan herhangi bir mali kayıptan sorumlu değildir. Riski size ait olmak üzere kullanın.
