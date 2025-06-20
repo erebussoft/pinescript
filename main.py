@@ -65,26 +65,84 @@ def handle_trade_signal(data):
     entry_price = float(data['close_price'])
 
     logger.info(f"Processing {signal_type} signal for {symbol} at {entry_price}")
+    existing_trade_details = redis_client.get_trade(symbol)
 
-    open_positions_count = futures_client.get_open_positions_count()
-    if open_positions_count is not None and open_positions_count >= config.MAX_OPEN_TRADES:
-        message = f"Maksimum açık işlem sayısına ({config.MAX_OPEN_TRADES}) ulaşıldı. {symbol} için {signal_type} sinyali yok sayılıyor."
-        logger.warning(message)
-        if telegram_notifier.enabled: telegram_notifier.send_message(f"⚠️ {message}")
-        return
+    if existing_trade_details:
+        logger.info(f"İşlemde olan bir pozisyon bulundu {symbol} Redis'te: {existing_trade_details}")
+        if existing_trade_details['signal_type'] == signal_type:
+            # Same direction signal
+            message = f"{symbol} için mevcut pozisyonla aynı yönde ({signal_type}) bir sinyal alındı. Sinyal yok sayılıyor."
+            logger.warning(message)
+            # Optional: Send to Telegram if desired
+            # if telegram_notifier.enabled: telegram_notifier.send_message(f"ℹ️ {message}")
+            return
+        else:
+            # Opposite direction signal - Reverse logic
+            logger.info(f"{symbol} için mevcut pozisyona ters yönde ({signal_type}) bir sinyal alındı. Pozisyon tersine çevrilecek.")
 
-    if redis_client.get_trade(symbol):
-        message = f"{symbol} için bir işlem zaten yönetiliyor (Redis'te bulundu). Yeni {signal_type} sinyali yok sayılıyor." # Log message, not sent to Telegram.
-        logger.warning(message)
-        return
+            # 3a. Close existing position
+            logger.info(f"Mevcut {existing_trade_details['signal_type']} pozisyonu kapatılıyor: {symbol}...")
+            # We'll assume a function like close_trade_at_market(symbol, quantity, original_signal_type) exists or will be added to binance_client.py
+            # It should return details like exit price. For now, placeholder:
+            closure_details = futures_client.close_trade_at_market( # This function needs to be implemented in binance_client.py
+                symbol,
+                existing_trade_details['quantity'],
+                existing_trade_details['signal_type']
+            )
 
-    existing_position = futures_client.get_open_position_for_symbol(symbol)
-    if existing_position and float(existing_position.get('positionAmt', 0)) != 0:
-        message = f"{symbol} için (Miktar: {existing_position['positionAmt']}) açık bir pozisyon zaten Binance'te mevcut. Bot yeni bir işlem açmayacak."
-        logger.warning(message)
-        if telegram_notifier.enabled: telegram_notifier.notify_error(f"Çakışma Uyarısı: {symbol}", message)
-        return
+            if closure_details and closure_details.get('avgPrice'): # Check for avgPrice or other indicators of success
+                logger.info(f"{symbol} pozisyonu başarıyla kapatıldı. Çıkış fiyatı: {closure_details.get('avgPrice')}")
+                # 3b. Send Telegram notification for closure (using a new specific notifier method to be created)
+                if telegram_notifier.enabled:
+                    telegram_notifier.notify_trade_reverse_closure( # This function needs to be implemented in telegram_bot.py
+                        symbol,
+                        existing_trade_details['signal_type'], # original direction
+                        float(closure_details.get('avgPrice')),
+                        existing_trade_details['quantity'],
+                        notes=f"Ters sinyal ({signal_type}) nedeniyle kapatıldı."
+                    )
 
+                # 3c. Remove old trade from Redis
+                redis_client.delete_trade(symbol)
+                logger.info(f"{symbol} için eski işlem detayları Redis'ten silindi.")
+
+                # IMPORTANT: Reset initialized_symbols_settings for the symbol to allow re-setting leverage/margin if needed for the new trade.
+                if symbol in initialized_symbols_settings:
+                    initialized_symbols_settings.remove(symbol)
+                logger.info(f"{symbol} için kaldıraç/marjin ayarlarının yeniden doğrulanmasına izin verildi.")
+
+                # 3d. Proceed to open new trade (logic continues below, as if no trade existed)
+                logger.info(f"{symbol} için yeni {signal_type} pozisyonu açma işlemine devam ediliyor.")
+                # Set existing_trade_details to None so the rest of the logic proceeds as a new trade
+                existing_trade_details = None
+            else:
+                message = f"KRİTİK: {symbol} için mevcut pozisyon kapatılamadı. Yeni {signal_type} işlemi AÇILMAYACAK."
+                logger.error(message)
+                if telegram_notifier.enabled:
+                    telegram_notifier.notify_error(f"Pozisyon Kapatma Hatası: {symbol}", message)
+                return # Do not proceed to open new trade
+
+    # If existing_trade_details was None OR if it was an opposite signal and successfully closed:
+    # New placement for MAX_OPEN_TRADES check:
+    if not existing_trade_details: # Only check if it's a truly new trade, not a reversal that just closed one.
+        open_positions_count = futures_client.get_open_positions_count()
+        if open_positions_count is not None and open_positions_count >= config.MAX_OPEN_TRADES:
+            message = f"Maksimum açık işlem sayısına ({config.MAX_OPEN_TRADES}) ulaşıldı. {symbol} için {signal_type} sinyali yok sayılıyor."
+            logger.warning(message)
+            if telegram_notifier.enabled: telegram_notifier.send_message(f"⚠️ {message}")
+            return
+
+    # The original check for existing position on Binance (unmanaged by bot)
+    if not existing_trade_details: # If we are not in a reversal flow (already handled or was not an existing bot trade)
+        logger.debug(f"No prior bot-managed trade found for {symbol}. Checking Binance for unmanaged positions.")
+        existing_position_on_binance = futures_client.get_open_position_for_symbol(symbol)
+        if existing_position_on_binance and float(existing_position_on_binance.get('positionAmt', 0)) != 0:
+            message = f"{symbol} için (Miktar: {existing_position_on_binance['positionAmt']}) açık bir pozisyon zaten Binance'te mevcut (bot tarafından yönetilmiyor). Bot yeni bir işlem açmayacak."
+            logger.warning(message)
+            if telegram_notifier.enabled: telegram_notifier.notify_error(f"Çakışma Uyarısı: {symbol}", message)
+            return
+
+    # Remainder of the original logic for opening a new trade starts here
     if symbol not in initialized_symbols_settings:
         logger.info(f"Configuring {symbol} for leverage {config.LEVERAGE}x and margin type {config.MARGIN_TYPE}...")
         leverage_ok = futures_client.set_leverage(symbol, config.LEVERAGE)

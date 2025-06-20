@@ -71,6 +71,23 @@ class TelegramNotifier:
             message += f"\n**Notlar:** {notes}"
         return self.send_message(message)
 
+    def notify_trade_reverse_closure(self, symbol, original_direction, exit_price, quantity, notes=""):
+        # original_direction zaten 'LONG' veya 'SHORT' (İngilizce) olmalı (main.py'den geliyor)
+        # direction_emoji = "🟢" if original_direction.upper() == "LONG" else "🔴"
+        # Veya daha basitçe, kapanış her zaman bir "dikkat" veya "nötr" emoji olabilir, çünkü bu stratejik bir kapanıştır.
+        closure_emoji = "🔄" # Döndürme/değiştirme emojisi
+
+        message = (
+            f"{closure_emoji} **Pozisyon Ters Sinyal Nedeniyle Kapatıldı** {closure_emoji}\n\n"
+            f"**Sembol:** `{symbol}`\n"
+            f"**Orijinal Yön:** `{original_direction.upper()}`\n" # main.py'den gelen İngilizce yönü kullanır
+            f"**Çıkış Fiyatı:** `{exit_price:.4f}`\n"
+            f"**Miktar:** `{quantity}`\n"
+        )
+        if notes:
+            message += f"\n**Notlar:** {notes}"
+        return self.send_message(message)
+
     def notify_error(self, error_message, details=""):
         message = (
             f"⚠️ **Bot Hatası** ⚠️\n\n"
@@ -107,6 +124,9 @@ if __name__ == '__main__':
 
         logger.info("Sending test close notification...")
         notifier.notify_trade_close("ETHUSDT", "short", 3000.0, 3100.0, 0.05, -5.0, notes="Bot geliştiricisinden test kapanışı")
+
+        logger.info("Sending test reverse closure notification...")
+        notifier.notify_trade_reverse_closure("ADAUSDT", "long", 1.5000, 100, notes="Ters sinyal (short) nedeniyle kapatıldı.")
 
         logger.info("Sending test error notification...")
         notifier.notify_error("Test hata mesajı", details="Test sırasında simüle edilmiş hata.")

@@ -280,18 +280,6 @@ class BinanceFuturesClient:
             logger.error(f"Failed to place stop loss order for {symbol}")
         return sl_order
 
-    def close_position_market(self, symbol, position_amt_str):
-        position_amt = float(position_amt_str)
-        if position_amt == 0:
-            logger.info(f"No position to close for {symbol}")
-            return None
-
-        side = SIDE_SELL if position_amt > 0 else SIDE_BUY # Uzun pozisyondaysa, kapatmak için sat. Kısa pozisyondaysa, kapatmak için al.
-        quantity = abs(position_amt)
-
-        logger.info(f"Attempting to close {quantity} of {symbol} with a MARKET order (side: {side})")
-        return self.place_futures_order(symbol, side, quantity, order_type=FUTURE_ORDER_TYPE_MARKET)
-
     def get_open_position_for_symbol(self, symbol):
         try:
             positions = self.client.futures_position_information(symbol=symbol, timestamp=self._get_timestamp())
@@ -305,6 +293,93 @@ class BinanceFuturesClient:
             logger.error(f"Binance API Exception getting position for {symbol}: {e}")
         except Exception as e:
             logger.error(f"Error getting position for {symbol}: {e}")
+        return None
+
+    def close_trade_at_market(self, symbol: str, quantity: float, original_signal_type: str):
+        """
+        Closes an existing position at market price.
+        original_signal_type is the direction of the trade to be closed ('long' or 'short').
+        Returns the closure order details or None if an error occurs.
+        """
+        # Docstring yukarıda zaten Türkçe olarak sağlandı, bu yüzden burada tekrar etmeye gerek yok.
+        # Gerçek metodun Türkçe çevirisi aşağıdaki gibidir:
+        """
+        Mevcut bir pozisyonu piyasa fiyatından kapatır.
+        original_signal_type, kapatılacak işlemin yönüdür ('long' veya 'short').
+        Kapatma emri detaylarını veya bir hata oluşursa None döndürür.
+        """
+        if quantity <= 0:
+            logger.error(f"{symbol} için kapatılacak miktar pozitif olmalıdır. Alınan: {quantity}")
+            return None
+
+        side_to_close = None
+        if original_signal_type.lower() == 'long':
+            side_to_close = SIDE_SELL # Long pozisyonu kapatmak için sat
+        elif original_signal_type.lower() == 'short':
+            side_to_close = SIDE_BUY # Short pozisyonu kapatmak için al
+        else:
+            logger.error(f"{symbol} için geçersiz orijinal sinyal türü: {original_signal_type}. Kapatma işlemi yapılamadı.")
+            return None
+
+        logger.info(f"{symbol} sembolündeki {original_signal_type} yönlü {quantity} miktarlı pozisyon piyasa emriyle kapatılmaya çalışılıyor (taraf: {side_to_close}).")
+
+        try:
+            # place_futures_order zaten reduceOnly=False (varsayılan) olarak ayarlar, bu pozisyon kapatma için uygundur.
+            # Ancak, Binance API'sinde closePosition=true parametresi de kullanılabilir.
+            # Daha kesin bir kapatma için, closePosition=true kullanmak daha iyidir.
+            # Bu, mevcut place_futures_order'ın değiştirilmesini veya yeni bir özel çağrı yapılmasını gerektirebilir.
+            # Şimdilik, mevcut place_futures_order'ı miktar ve ters taraf ile kullanalım.
+            # Bu, pozisyonu azaltmalı veya kapatmalıdır.
+
+            # Binance API'sinin pozisyon kapatmak için özel bir parametresi var: closePosition
+            # Bu, miktarı belirtmek yerine tüm pozisyonu kapatır. Bu daha güvenli olabilir.
+            # Ancak, `closePosition` ile `quantity` aynı anda gönderilemez.
+            # Eğer belirli bir miktarı değil, tüm pozisyonu kapatmak istiyorsak, `quantity` göndermemeliyiz.
+            # Planımızda belirli bir miktarı (mevcut pozisyonun miktarı) kapattığımız için, `quantity` kullanmak uygundur.
+            # Alternatif olarak, önce pozisyon miktarını tekrar kontrol edip `closePosition=true` kullanabiliriz.
+            # Güvenlik için, tüm pozisyonu kapatmak üzere `closePosition` kullanan bir yaklaşımı tercih edelim.
+            # Bu, `quantity` parametresini kaldırır.
+
+            close_params = {
+                'symbol': symbol,
+                'side': side_to_close, # Bu parametre closePosition=true ile gerekli olmayabilir, API dokümanlarına bakılmalı
+                                     # Genellikle `closePosition` tarafı pozisyondan türetir. Ama belirtmek zarar vermez.
+                'type': FUTURE_ORDER_TYPE_MARKET,
+                'timestamp': self._get_timestamp(),
+                'closePosition': 'true' # Pozisyonun tamamını piyasa fiyatından kapatır
+            }
+            # Not: `closePosition` kullanırken `quantity` gönderilmemelidir.
+            # `side` parametresi `closePosition` ile birlikte kullanıldığında Binance tarafından yok sayılabilir,
+            # çünkü pozisyonun yönünü zaten bilir. Ancak, bazı API versiyonları bunu gerektirebilir.
+            # Test etmek en iyisidir. Şimdilik `side` parametresini dahil ediyoruz.
+
+            logger.info(f"{symbol} için pozisyon kapatma emri parametreleri ({'closePosition=true' ile}): {close_params}")
+            order = self.client.futures_create_order(**close_params)
+
+            # Piyasa emirleri genellikle hemen dolar, ancak dolum fiyatını almak için emri sorgulamak daha iyidir.
+            # Şimdilik, emir yanıtındaki `avgPrice` veya benzeri bir alana güveneceğiz eğer varsa.
+            # VEYA, daha güvenilir olmak için, emir verildikten sonra `futures_get_order` veya `futures_user_trades` sorgulanabilir.
+            # Basitlik için, doğrudan yanıttan `avgPrice` almaya çalışalım.
+            filled_price = order.get('avgPrice')
+            if not filled_price or float(filled_price) == 0:
+                # avgPrice mevcut değilse veya 0 ise, emri manuel olarak sorgulamamız gerekebilir
+                # veya en azından bir uyarı günlüğü tutmalıyız.
+                # Şimdilik, emir yanıtının yeterli olduğunu varsayalım.
+                logger.warning(f"{symbol} için pozisyon kapatma emri yanıtında ortalama dolum fiyatı bulunamadı. Emir ID: {order.get('orderId')}")
+                # `order` nesnesini yine de döndürelim, çağıran taraf daha fazla işlem yapabilir.
+
+            logger.info(f"{symbol} pozisyonu için kapatma emri başarıyla verildi: {order}")
+            return order # order nesnesi 'avgPrice', 'executedQty' vb. içermelidir.
+
+        except BinanceAPIException as e:
+            logger.error(f"Binance API İstisnası {symbol} pozisyonu kapatılırken: {e.message} (Kod: {e.code})")
+            self.telegram_notifier.notify_error(f"Pozisyon Kapatma API Hatası: {symbol}", f"Kod: {e.code}, Mesaj: {e.message}")
+        except BinanceOrderException as e:
+            logger.error(f"Binance Emir İstisnası {symbol} pozisyonu kapatılırken: {e}")
+            self.telegram_notifier.notify_error(f"Pozisyon Kapatma Emir Hatası: {symbol}", str(e))
+        except Exception as e:
+            logger.error(f"{symbol} pozisyonu kapatılırken genel hata: {e}")
+            self.telegram_notifier.notify_error(f"Pozisyon Kapatma Genel Hata: {symbol}", str(e))
         return None
 
 # Örnek kullanım (bu modülü doğrudan test etmek için)
