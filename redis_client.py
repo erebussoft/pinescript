@@ -1,162 +1,162 @@
 import redis
 import json
 import logging
-import config # Import the application's config file
+import config # Uygulamanın yapılandırma dosyasını içe aktar
 
 logger = logging.getLogger(__name__)
 
 class RedisClient:
     def __init__(self):
         """
-        Initializes the Redis client, connecting to the Redis server
-        using configuration from the main config file.
+        Redis istemcisini başlatır, ana yapılandırma dosyasındaki ayarları
+        kullanarak Redis sunucusuna bağlanır.
         """
         self.redis_url = config.REDIS_URL
-        self.db = getattr(config, 'REDIS_DB', 0) # Default to DB 0 if not specified
+        self.db = getattr(config, 'REDIS_DB', 0) # Belirtilmemişse varsayılan olarak DB 0 kullanılır
         self.client = None
         self._connect()
 
     def _connect(self):
         """
-        Establishes connection to the Redis server.
-        Handles connection errors.
+        Redis sunucusuna bağlantı kurar.
+        Bağlantı hatalarını yönetir.
         """
         if not self.redis_url:
-            logger.error("REDIS_URL not configured. Redis client cannot be initialized.")
-            # Potentially raise an exception or handle this state as appropriate
-            # For now, operations will fail if client is None
+            logger.error("REDIS_URL yapılandırılmamış. Redis istemcisi başlatılamıyor.")
+            # Potansiyel olarak bir istisna yükseltilebilir veya bu durum uygun şekilde yönetilebilir
+            # Şimdilik, istemci None ise işlemler başarısız olacaktır
             return
 
         try:
-            logger.info(f"Connecting to Redis at {self.redis_url}, DB: {self.db}")
-            # The `from_url` method handles parsing the URL and setting up the connection.
-            # ssl_cert_reqs=None is often needed for Heroku Redis if not using a custom CA
-            # decode_responses=True would make all string results decoded from bytes to str automatically
+            logger.info(f"Redis'e {self.redis_url} adresinden, DB: {self.db} üzerinden bağlanılıyor")
+            # `from_url` metodu, URL'yi ayrıştırmayı ve bağlantıyı kurmayı yönetir.
+            # ssl_cert_reqs=None, özel bir CA kullanılmıyorsa Heroku Redis için genellikle gereklidir
+            # decode_responses=True, tüm dize sonuçlarının baytlardan str'ye otomatik olarak çözülmesini sağlar
             self.client = redis.Redis.from_url(self.redis_url, db=self.db, ssl_cert_reqs=None, decode_responses=False)
-            # Test connection
+            # Bağlantıyı test et
             self.client.ping()
-            logger.info("Successfully connected to Redis.")
+            logger.info("Redis'e başarıyla bağlanıldı.")
         except redis.exceptions.ConnectionError as e:
-            logger.error(f"Failed to connect to Redis: {e}", exc_info=True)
-            self.client = None # Ensure client is None if connection fails
-        except Exception as e: # Catch other potential errors during Redis client initialization
-            logger.error(f"An unexpected error occurred during Redis initialization: {e}", exc_info=True)
+            logger.error(f"Redis'e bağlanılamadı: {e}", exc_info=True)
+            self.client = None # Bağlantı başarısız olursa istemcinin None olduğundan emin olun
+        except Exception as e: # Redis istemcisi başlatılırken diğer olası hataları yakala
+            logger.error(f"Redis başlatılırken beklenmeyen bir hata oluştu: {e}", exc_info=True)
             self.client = None
 
     def is_connected(self):
-        """Checks if the client is connected to Redis."""
+        """İstemcinin Redis'e bağlı olup olmadığını kontrol eder."""
         if self.client:
             try:
                 self.client.ping()
                 return True
             except redis.exceptions.ConnectionError:
-                logger.warning("Redis connection lost. Attempting to reconnect...")
-                self._connect() # Attempt to reconnect
-                if self.client and self.client.ping(): # Check again after reconnect attempt
-                    logger.info("Successfully reconnected to Redis.")
+                logger.warning("Redis bağlantısı kesildi. Yeniden bağlanmaya çalışılıyor...")
+                self._connect() # Yeniden bağlanmayı dene
+                if self.client and self.client.ping(): # Yeniden bağlanma denemesinden sonra tekrar kontrol et
+                    logger.info("Redis'e başarıyla yeniden bağlanıldı.")
                     return True
-                logger.error("Failed to reconnect to Redis.")
+                logger.error("Redis'e yeniden bağlanılamadı.")
                 return False
         return False
 
     def set_trade(self, symbol: str, trade_data: dict):
         """
-        Stores trade data for a given symbol in Redis.
-        The trade_data dictionary is serialized to a JSON string.
-        Key format: active_trade:<symbol>
+        Belirli bir sembol için işlem verilerini Redis'te saklar.
+        trade_data sözlüğü bir JSON dizesine serileştirilir.
+        Anahtar formatı: active_trade:<symbol>
         """
         if not self.is_connected():
-            logger.error(f"Not connected to Redis. Cannot set trade for {symbol}.")
+            logger.error(f"Redis'e bağlı değil. {symbol} için işlem ayarlanamıyor.")
             return False
         try:
             key = f"active_trade:{symbol}"
             serialized_data = json.dumps(trade_data)
             self.client.set(key, serialized_data)
-            logger.debug(f"Trade data for {symbol} stored in Redis. Key: {key}")
+            logger.debug(f"{symbol} için işlem verileri Redis'te saklandı. Anahtar: {key}")
             return True
         except redis.exceptions.RedisError as e:
-            logger.error(f"Redis error while setting trade for {symbol}: {e}", exc_info=True)
+            logger.error(f"{symbol} için işlem ayarlanırken Redis hatası: {e}", exc_info=True)
             return False
         except json.JSONDecodeError as e:
-            logger.error(f"JSON serialization error while setting trade for {symbol}: {e}", exc_info=True)
+            logger.error(f"{symbol} için işlem ayarlanırken JSON serileştirme hatası: {e}", exc_info=True)
             return False
 
 
     def get_trade(self, symbol: str) -> dict | None:
         """
-        Retrieves trade data for a symbol from Redis.
-        Deserializes data from JSON string to a dictionary.
-        Returns None if the symbol is not found or an error occurs.
-        Key format: active_trade:<symbol>
+        Bir sembol için işlem verilerini Redis'ten alır.
+        Verileri JSON dizesinden bir sözlüğe deserileştirir.
+        Sembol bulunamazsa veya bir hata oluşursa None döndürür.
+        Anahtar formatı: active_trade:<symbol>
         """
         if not self.is_connected():
-            logger.error(f"Not connected to Redis. Cannot get trade for {symbol}.")
+            logger.error(f"Redis'e bağlı değil. {symbol} için işlem alınamıyor.")
             return None
         try:
             key = f"active_trade:{symbol}"
             serialized_data = self.client.get(key)
             if serialized_data:
-                trade_data = json.loads(serialized_data.decode('utf-8')) # Decode bytes to str before json.loads
-                logger.debug(f"Trade data for {symbol} retrieved from Redis. Key: {key}")
+                trade_data = json.loads(serialized_data.decode('utf-8')) # Baytları str'ye çözdükten sonra json.loads
+                logger.debug(f"{symbol} için işlem verileri Redis'ten alındı. Anahtar: {key}")
                 return trade_data
             else:
-                logger.debug(f"No trade data found in Redis for {symbol}. Key: {key}")
+                logger.debug(f"{symbol} için Redis'te işlem verisi bulunamadı. Anahtar: {key}")
                 return None
         except redis.exceptions.RedisError as e:
-            logger.error(f"Redis error while getting trade for {symbol}: {e}", exc_info=True)
+            logger.error(f"{symbol} için işlem alınırken Redis hatası: {e}", exc_info=True)
             return None
         except json.JSONDecodeError as e:
-            logger.error(f"JSON deserialization error while getting trade for {symbol}: {e}", exc_info=True)
+            logger.error(f"{symbol} için işlem alınırken JSON deserileştirme hatası: {e}", exc_info=True)
             return None
 
     def delete_trade(self, symbol: str):
         """
-        Deletes trade data for a symbol from Redis.
-        Key format: active_trade:<symbol>
+        Bir sembol için işlem verilerini Redis'ten siler.
+        Anahtar formatı: active_trade:<symbol>
         """
         if not self.is_connected():
-            logger.error(f"Not connected to Redis. Cannot delete trade for {symbol}.")
+            logger.error(f"Redis'e bağlı değil. {symbol} için işlem silinemiyor.")
             return False
         try:
             key = f"active_trade:{symbol}"
             result = self.client.delete(key)
             if result > 0:
-                logger.info(f"Trade data for {symbol} deleted from Redis. Key: {key}")
+                logger.info(f"{symbol} için işlem verileri Redis'ten silindi. Anahtar: {key}")
             else:
-                logger.info(f"No trade data found to delete in Redis for {symbol} (or already deleted). Key: {key}")
-            return True # Returns True even if key didn't exist, as per Redis `del` behavior
+                logger.info(f"{symbol} için Redis'te silinecek işlem verisi bulunamadı (veya zaten silinmiş). Anahtar: {key}")
+            return True # Anahtar mevcut olmasa bile True döndürür, Redis `del` davranışına göre
         except redis.exceptions.RedisError as e:
-            logger.error(f"Redis error while deleting trade for {symbol}: {e}", exc_info=True)
+            logger.error(f"{symbol} için işlem silinirken Redis hatası: {e}", exc_info=True)
             return False
 
     def get_all_trade_symbols(self) -> list[str]:
         """
-        Retrieves all symbols (keys without prefix) for active trades.
-        Scans for keys matching "active_trade:*" pattern.
+        Aktif işlemler için tüm sembolleri (önek olmadan anahtarlar) alır.
+        "active_trade:*" kalıbıyla eşleşen anahtarları tarar.
         """
         if not self.is_connected():
-            logger.error("Not connected to Redis. Cannot get all trade symbols.")
+            logger.error("Redis'e bağlı değil. Tüm işlem sembolleri alınamıyor.")
             return []
         symbols = []
         try:
-            # Use scan_iter for memory efficiency with large number of keys
+            # Çok sayıda anahtarla bellek verimliliği için scan_iter kullanın
             for key_bytes in self.client.scan_iter(match="active_trade:*"):
                 key_str = key_bytes.decode('utf-8')
-                symbol = key_str.split(":", 1)[1] # Extract symbol part from "active_trade:SYMBOL"
+                symbol = key_str.split(":", 1)[1] # "active_trade:SYMBOL" dan sembol kısmını çıkarın
                 symbols.append(symbol)
-            logger.debug(f"Retrieved {len(symbols)} active trade symbols from Redis.")
+            logger.debug(f"Redis'ten {len(symbols)} aktif işlem sembolü alındı.")
             return symbols
         except redis.exceptions.RedisError as e:
-            logger.error(f"Redis error while getting all trade symbols: {e}", exc_info=True)
+            logger.error(f"Tüm işlem sembolleri alınırken Redis hatası: {e}", exc_info=True)
             return []
 
     def get_all_trades(self) -> dict[str, dict]:
         """
-        Retrieves all active trades from Redis.
-        Returns a dictionary where keys are symbols and values are trade_data dictionaries.
+        Tüm aktif işlemleri Redis'ten alır.
+        Anahtarların semboller ve değerlerin trade_data sözlükleri olduğu bir sözlük döndürür.
         """
         if not self.is_connected():
-            logger.error("Not connected to Redis. Cannot get all trades.")
+            logger.error("Redis'e bağlı değil. Tüm işlemler alınamıyor.")
             return {}
 
         trades = {}
@@ -166,97 +166,97 @@ class RedisClient:
             if trade_data:
                 trades[symbol] = trade_data
             else:
-                # This might happen if a key exists but fetching its data fails, or if a key expired between scan and get
-                logger.warning(f"Could not retrieve trade data for symbol {symbol} listed in keys. It might have been deleted concurrently.")
-        logger.debug(f"Retrieved data for {len(trades)} trades from Redis.")
+                # Bu, bir anahtar mevcutsa ancak verilerini getirme başarısız olursa veya tarama ile get arasında bir anahtarın süresi dolarsa olabilir
+                logger.warning(f"Anahtarlarda listelenen {symbol} sembolü için işlem verileri alınamadı. Eş zamanlı olarak silinmiş olabilir.")
+        logger.debug(f"Redis'ten {len(trades)} işlem için veri alındı.")
         return trades
 
-# Example usage (optional, for testing purposes)
+# Örnek kullanım (isteğe bağlı, test amaçlı)
 if __name__ == '__main__':
-    # This part will only run when redis_client.py is executed directly.
-    # It requires config.py to be set up, especially REDIS_URL.
-    # For Heroku, REDIS_URL is usually an environment variable.
-    # For local testing, you might need to set config.REDIS_URL manually or via an .env file if you adapt config.py to load it.
+    # Bu bölüm yalnızca redis_client.py doğrudan çalıştırıldığında çalışacaktır.
+    # config.py dosyasının, özellikle REDIS_URL'nin ayarlanmış olmasını gerektirir.
+    # Heroku için REDIS_URL genellikle bir ortam değişkenidir.
+    # Yerel test için, config.py'yi yüklemek üzere uyarlarsanız, config.REDIS_URL'yi manuel olarak veya bir .env dosyası aracılığıyla ayarlamanız gerekebilir.
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
-    logger.info("Attempting to run RedisClient standalone for testing...")
+    logger.info("RedisClient'ı test için bağımsız olarak çalıştırmaya çalışılıyor...")
 
-    # --- IMPORTANT LOCAL TESTING NOTE ---
-    # Ensure your config.py has a valid REDIS_URL for this test to work.
-    # For example, you could temporarily set it in config.py:
+    # --- ÖNEMLİ YEREL TEST NOTU ---
+    # Bu testin çalışması için config.py dosyanızda geçerli bir REDIS_URL olduğundan emin olun.
+    # Örneğin, config.py dosyasında geçici olarak ayarlayabilirsiniz:
     # config.REDIS_URL = "redis://localhost:6379/0"
-    # Or, ensure the environment variable is set if config.py loads it from there.
+    # Veya, config.py oradan yüklüyorsa ortam değişkeninin ayarlandığından emin olun.
     if not config.REDIS_URL:
-        logger.warning("config.REDIS_URL is not set. Standalone test might not connect to Redis unless it's available via environment.")
-        # Attempt to set a default for local testing if not set - this is a fallback
-        # In a real scenario, config.py should handle loading this from os.environ
-        # For this subtask, we assume config.py might not be fully adapted yet for local env vars
-        # So, providing a common default for local dev:
+        logger.warning("config.REDIS_URL ayarlanmadı. Ortam üzerinden kullanılabilir olmadıkça bağımsız test Redis'e bağlanamayabilir.")
+        # Ayarlanmadıysa yerel test için varsayılan ayarlama denemesi - bu bir yedek çözümdür
+        # Gerçek bir senaryoda, config.py bunu os.environ'dan yüklemeyi yönetmelidir
+        # Bu alt görev için, config.py'nin yerel ortam değişkenleri için henüz tam olarak uyarlanmamış olabileceğini varsayıyoruz
+        # Bu nedenle, yerel geliştirme için yaygın bir varsayılan sağlıyoruz:
         if 'REDIS_URL' not in dir(config) or not config.REDIS_URL:
-             print("Patching config.REDIS_URL for local test as it's not set. Using 'redis://localhost:6379/0'")
+             print("config.REDIS_URL ayarlanmadığı için yerel test için yama yapılıyor. 'redis://localhost:6379/0' kullanılıyor")
              config.REDIS_URL = "redis://localhost:6379/0"
 
 
     redis_client_instance = RedisClient()
 
     if redis_client_instance.is_connected():
-        logger.info("Redis client connected for testing.")
+        logger.info("Redis istemcisi test için bağlandı.")
 
-        # Test data
+        # Test verileri
         test_symbol_1 = "BTCUSDT_TEST"
         test_data_1 = {"entry_price": 40000, "quantity": 0.01, "side": "long", "sl_order_id": "12345"}
         test_symbol_2 = "ETHUSDT_TEST"
         test_data_2 = {"entry_price": 3000, "quantity": 0.1, "side": "short", "sl_order_id": "67890"}
 
-        # Clean up any previous test keys
+        # Önceki test anahtarlarını temizle
         redis_client_instance.delete_trade(test_symbol_1)
         redis_client_instance.delete_trade(test_symbol_2)
 
-        # Test set_trade
-        logger.info(f"Setting trade for {test_symbol_1}...")
+        # set_trade test et
+        logger.info(f"{test_symbol_1} için işlem ayarlanıyor...")
         redis_client_instance.set_trade(test_symbol_1, test_data_1)
 
-        logger.info(f"Setting trade for {test_symbol_2}...")
+        logger.info(f"{test_symbol_2} için işlem ayarlanıyor...")
         redis_client_instance.set_trade(test_symbol_2, test_data_2)
 
-        # Test get_trade
-        logger.info(f"Getting trade for {test_symbol_1}...")
+        # get_trade test et
+        logger.info(f"{test_symbol_1} için işlem alınıyor...")
         retrieved_data_1 = redis_client_instance.get_trade(test_symbol_1)
         if retrieved_data_1 == test_data_1:
-            logger.info(f"SUCCESS: get_trade for {test_symbol_1} returned correct data.")
+            logger.info(f"BAŞARILI: {test_symbol_1} için get_trade doğru veriyi döndürdü.")
         else:
-            logger.error(f"FAILURE: get_trade for {test_symbol_1} returned {retrieved_data_1}, expected {test_data_1}")
+            logger.error(f"BAŞARISIZ: {test_symbol_1} için get_trade {retrieved_data_1} döndürdü, beklenen {test_data_1}")
 
-        # Test get_all_trade_symbols
-        logger.info("Getting all trade symbols...")
+        # get_all_trade_symbols test et
+        logger.info("Tüm işlem sembolleri alınıyor...")
         symbols = redis_client_instance.get_all_trade_symbols()
         expected_symbols = sorted([test_symbol_1, test_symbol_2])
         if sorted(symbols) == expected_symbols:
-            logger.info(f"SUCCESS: get_all_trade_symbols returned {symbols}.")
+            logger.info(f"BAŞARILI: get_all_trade_symbols {symbols} döndürdü.")
         else:
-            logger.error(f"FAILURE: get_all_trade_symbols returned {symbols}, expected {expected_symbols}")
+            logger.error(f"BAŞARISIZ: get_all_trade_symbols {symbols} döndürdü, beklenen {expected_symbols}")
 
 
-        # Test get_all_trades
-        logger.info("Getting all trades...")
+        # get_all_trades test et
+        logger.info("Tüm işlemler alınıyor...")
         all_trades = redis_client_instance.get_all_trades()
         if test_symbol_1 in all_trades and all_trades[test_symbol_1] == test_data_1 and            test_symbol_2 in all_trades and all_trades[test_symbol_2] == test_data_2:
-            logger.info(f"SUCCESS: get_all_trades returned correct data for {len(all_trades)} trades.")
+            logger.info(f"BAŞARILI: get_all_trades {len(all_trades)} işlem için doğru veriyi döndürdü.")
         else:
-            logger.error(f"FAILURE: get_all_trades returned {all_trades}, check individual entries.")
+            logger.error(f"BAŞARISIZ: get_all_trades {all_trades} döndürdü, bireysel girişleri kontrol edin.")
 
 
-        # Test delete_trade
-        logger.info(f"Deleting trade for {test_symbol_1}...")
+        # delete_trade test et
+        logger.info(f"{test_symbol_1} için işlem siliniyor...")
         redis_client_instance.delete_trade(test_symbol_1)
         if redis_client_instance.get_trade(test_symbol_1) is None:
-            logger.info(f"SUCCESS: delete_trade for {test_symbol_1} successful.")
+            logger.info(f"BAŞARILI: {test_symbol_1} için delete_trade başarılı.")
         else:
-            logger.error(f"FAILURE: delete_trade for {test_symbol_1} failed, trade still exists.")
+            logger.error(f"BAŞARISIZ: {test_symbol_1} için delete_trade başarısız, işlem hala mevcut.")
 
-        # Clean up remaining test key
+        # Kalan test anahtarını temizle
         redis_client_instance.delete_trade(test_symbol_2)
-        logger.info("Redis client tests finished.")
+        logger.info("Redis istemci testleri tamamlandı.")
     else:
-        logger.error("Redis client NOT connected. Cannot run tests.")
-        logger.error("Please ensure Redis server is running and REDIS_URL in config.py is correctly set for your environment.")
+        logger.error("Redis istemcisi bağlı DEĞİL. Testler çalıştırılamıyor.")
+        logger.error("Lütfen Redis sunucusunun çalıştığından ve config.py dosyasındaki REDIS_URL'nin ortamınız için doğru şekilde ayarlandığından emin olun.")

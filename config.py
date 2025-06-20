@@ -11,11 +11,11 @@ BINANCE_API_SECRET = "YOUR_BINANCE_API_SECRET" # BINANCE_API_SECRET: Binance API
 TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN" # TELEGRAM_BOT_TOKEN: Telegram botunuzun token'ı.
 TELEGRAM_CHAT_ID = "YOUR_TELEGRAM_CHAT_ID" # TELEGRAM_CHAT_ID: Telegram'da mesajların gönderileceği sohbet ID'si.
 
-# --- Redis Configuration ---
-# Heroku Redis URL will be automatically set in the environment.
-# For local development, you might set it like: 'redis://localhost:6379'
-REDIS_URL = None # Automatically set by Heroku or define for local
-REDIS_DB = 0 # Optional: Redis database number
+# --- Redis Yapılandırması ---
+# Heroku Redis URL'si ortamda otomatik olarak ayarlanacaktır.
+# Yerel geliştirme için şu şekilde ayarlayabilirsiniz: 'redis://localhost:6379'
+REDIS_URL = None # Heroku tarafından otomatik olarak ayarlanır veya yerel geliştirme için tanımlayın
+REDIS_DB = 0 # İsteğe bağlı: Redis veritabanı numarası
 
 # --- Ticaret Parametreleri ---
 LEVERAGE = 10  # LEVERAGE: Kaldıraç oranı (örneğin, 10x).
