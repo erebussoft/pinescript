@@ -20,12 +20,14 @@ app = Flask(__name__)
 futures_client = None
 telegram_notifier = None
 redis_client = None # Bunu ekle
+synchronization_successful = False # Senkronizasyon bayrağı eklendi
 # active_bot_trades = {} # Bu satırı kaldır
 initialized_symbols_settings = set() # Bu oturumda kaldıraç/marjin ayarlanan sembolleri izler
 # active_trades_lock = threading.Lock() # İsteğe bağlı: gerekirse daha karmaşık sözlük manipülasyonları için
 
 def initialize_services():
-    global futures_client, telegram_notifier, redis_client
+    global futures_client, telegram_notifier, redis_client, synchronization_successful # synchronization_successful eklendi
+    synchronization_successful = False # Fonksiyon başında bayrağı başlat
     logger.info("Initializing services...")
     telegram_notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID) # Hata raporlama için bunu önce başlat
     futures_client = BinanceFuturesClient(config.BINANCE_API_KEY, config.BINANCE_API_SECRET, telegram_notifier)
@@ -43,16 +45,75 @@ def initialize_services():
         logger.info("Redis client initialized and connected.")
 
     logger.info("Checking Binance connection...")
-    balance = futures_client.get_usdt_balance()
-    if balance is None or (balance == 0.0 and config.BINANCE_API_KEY != "YOUR_BINANCE_API_KEY"):
-        logger.error("Failed to connect to Binance or retrieve balance. Check API keys, permissions, or network.")
+    balance = futures_client.get_usdt_balance() # İlk bakiye kontrolü kritik servislerin çalışıp çalışmadığını görmek için
+    if balance is None: # Daha sıkı kontrol, API anahtarı demo olsa bile None dönmemeli
+        logger.error("Failed to connect to Binance or retrieve balance. Check API keys, permissions, or network. Bot cannot start trading without Binance connection.")
         if telegram_notifier.enabled:
              telegram_notifier.notify_error("Bot Servisi KRİTİK Hata", "Binance'e bağlanılamadı veya bakiye alınamadı. Bot ticarete başlayamaz.")
+        # synchronization_successful False kalır
     else:
-        logger.info(f"Binance connection successful. USDT Balance: {balance}")
-        if telegram_notifier.enabled:
-            telegram_notifier.send_message("🤖 Trading Bot Sunucusu Başarıyla Başlatıldı\n🟢 Webhook sinyalleri dinleniyor.")
-    logger.info("Services initialized.")
+        logger.info(f"Binance connection successful. USDT Balance: {balance if balance is not None else 'N/A'}")
+        # Başlangıç senkronizasyonunu burada yap
+        if redis_client.is_connected() and futures_client: # futures_client zaten yukarıda kontrol edildi ama güvenlik için tekrar
+            logger.info("Başlangıç: Binance ve Redis arasında pozisyon senkronizasyonu başlatılıyor...")
+            try:
+                open_binance_positions_map = futures_client.get_all_open_positions_detailed()
+                logger.info(f"Binance'te {len(open_binance_positions_map)} açık pozisyon bulundu: {list(open_binance_positions_map.keys())}")
+
+                tracked_redis_trades = redis_client.get_all_trades()
+                logger.info(f"Redis'te {len(tracked_redis_trades)} takip edilen işlem bulundu: {list(tracked_redis_trades.keys())}")
+
+                # Senaryo 1: Binance'te pozisyon var, Redis'te YOK (Yönetilmeyen Pozisyon)
+                for symbol, binance_pos_details in open_binance_positions_map.items():
+                    if symbol not in tracked_redis_trades:
+                        error_msg_detail = (f"Sembol: {symbol}, Miktar: {binance_pos_details['quantity']}, "
+                                            f"Binance Giriş Fiyatı: {binance_pos_details['entry_price']}. "
+                                            f"Bu pozisyon bot tarafından aktif olarak yönetilmiyor.")
+                        logger.critical(f"KRİTİK: Binance'te yönetilmeyen açık pozisyon bulundu! {error_msg_detail}")
+                        if telegram_notifier.enabled:
+                            telegram_notifier.notify_unmanaged_position(
+                                symbol,
+                                binance_pos_details['quantity'],
+                                binance_pos_details['entry_price'],
+                                notes="Bu pozisyon bot tarafından İZLENMİYOR. Lütfen manuel olarak kontrol edin."
+                            )
+
+                # Senaryo 2: Redis'te işlem var, Binance'te YOK (Eski Redis Kaydı)
+                for symbol, redis_trade_details in list(tracked_redis_trades.items()): # .items() kopyası üzerinde yineleme
+                    if symbol not in open_binance_positions_map:
+                        logger.warning(f"Redis'te takip edilen {symbol} işlemi Binance'te açık değil. Muhtemelen bot kapalıyken kapatıldı. Redis'ten kaldırılıyor.")
+                        redis_client.delete_trade(symbol)
+                        if telegram_notifier.enabled:
+                            telegram_notifier.notify_stale_trade_removed(
+                                symbol,
+                                notes=f"Pozisyon Binance'te bulunamadı. {symbol} takipten çıkarıldı."
+                            )
+                    elif symbol in open_binance_positions_map:
+                         logger.info(f"Aktif işlem {symbol} hem Binance'te hem de Redis'te bulundu ve senkronize. Takip devam ediyor.")
+                         # İsteğe bağlı: Daha derin bir kontrol için miktarları karşılaştırın
+                         # if abs(open_binance_positions_map[symbol]['quantity']) != abs(redis_trade_details['quantity']):
+                         #     logger.warning(f"{symbol} için Binance ve Redis miktarları farklı! Binance: {open_binance_positions_map[symbol]['quantity']}, Redis: {redis_trade_details['quantity']}")
+                         #     if telegram_notifier.enabled:
+                         #         telegram_notifier.notify_error(f"Miktar Uyuşmazlığı: {symbol}", "Binance ve Redis miktarları farklı. Manuel kontrol gerekli.")
+
+                logger.info("Başlangıç pozisyon senkronizasyonu başarıyla tamamlandı.")
+                synchronization_successful = True
+                if telegram_notifier.enabled: # Sadece senkronizasyon başarılıysa başlangıç mesajı gönder
+                    telegram_notifier.send_message("🤖 Trading Bot Sunucusu Başarıyla Başlatıldı\n🟢 Webhook sinyalleri dinleniyor.\n🔄 Pozisyonlar senkronize edildi.")
+
+            except Exception as e:
+                logger.error(f"Başlangıçta pozisyon senkronizasyonu sırasında bir hata oluştu: {e}", exc_info=True)
+                if telegram_notifier.enabled:
+                    telegram_notifier.notify_error(
+                        "Senkronizasyon Hatası",
+                        f"Bot başlarken pozisyonlar senkronize edilemedi: {str(e)}"
+                    )
+                # synchronization_successful False kalır (zaten başlangıçta False)
+        else:
+            logger.error("Redis veya Futures istemcisi düzgün başlatılamadığı için başlangıç senkronizasyonu atlandı.")
+            # synchronization_successful False kalır
+
+    logger.info("Services initialized.") # Bu satırın yeri önemli, senkronizasyon sonrası olmalı
 
 def handle_trade_signal(data):
     global futures_client, telegram_notifier, initialized_symbols_settings # active_bot_trades kaldırıldı
@@ -296,12 +357,13 @@ if __name__ == "__main__":
     initialize_services() # Global istemcileri başlat
 
     if config.TRAILING_STOP:
-        if futures_client and telegram_notifier and redis_client and redis_client.is_connected(): # İstemcilerin başlatıldığından ve Redis'in bağlı olduğundan emin olun
+        # TSL thread'i yalnızca kritik servisler başlatıldıysa VE başlangıç senkronizasyonu başarılıysa başlat
+        if futures_client and telegram_notifier and redis_client and redis_client.is_connected() and synchronization_successful:
             ts_thread = threading.Thread(target=trailing_stop_loop, daemon=True)
             ts_thread.start()
-            logger.info(f"Trailing stop manager thread initiated (check interval: {config.TRAILING_STOP_CHECK_INTERVAL_SECONDS}s).")
+            logger.info(f"Takip Eden Zarar Durdurma (TSL) yöneticisi iş parçacığı başlatıldı (kontrol aralığı: {config.TRAILING_STOP_CHECK_INTERVAL_SECONDS}s).")
         else:
-            logger.error("Cannot start Trailing Stop Manager: Binance client, Telegram notifier, or Redis client not initialized/connected.")
+            logger.error("Takip Eden Zarar Durdurma (TSL) Yöneticisi başlatılamıyor: Kritik servisler başlatılamadı VEYA başlangıç senkronizasyonu başarısız oldu.")
 
     # Üretim için Gunicorn veya Waitress kullanın
     app.run(host='0.0.0.0', port=5000, debug=False) # üretim için debug=False

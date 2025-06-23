@@ -109,6 +109,44 @@ class TelegramNotifier:
             message += f"\n**Notlar:** {notes}"
         return self.send_message(message)
 
+    def notify_unmanaged_position(self, symbol, position_amt, entry_price, notes=""):
+        """
+        Binance'te bulunan ancak Redis'te bot tarafından takip edilmeyen bir pozisyon hakkında bilgilendirir.
+        """
+        alert_emoji = "⚠️"
+        direction = "UZUN (LONG)" if position_amt > 0 else "KISA (SHORT)" if position_amt < 0 else "BİLİNMİYOR"
+
+        message = (
+            f"{alert_emoji} **Yönetilmeyen Pozisyon Tespit Edildi** {alert_emoji}\n\n"
+            f"**Sembol:** `{symbol}`\n"
+            f"**Miktar:** `{position_amt}`\n"
+            f"**Binance Giriş Fiyatı:** `{entry_price:.4f}`\n"
+            f"**Durum:** Bu pozisyon botun aktif takibinde DEĞİL.\n"
+        )
+        if notes:
+            message += f"\n**Notlar/Öneri:** {notes}"
+        else:
+            message += f"\n**Öneri:** Lütfen bu pozisyonu Binance arayüzünden manuel olarak inceleyin ve yönetin."
+
+        return self.send_message(message)
+
+    def notify_stale_trade_removed(self, symbol, notes=""):
+        """
+        Redis'te takip edilen ancak artık Binance'te bulunmayan eski bir işlem kaydının kaldırıldığını bildirir.
+        """
+        info_emoji = "ℹ️"
+        message = (
+            f"{info_emoji} **Eski İşlem Kaydı Temizlendi** {info_emoji}\n\n"
+            f"**Sembol:** `{symbol}`\n"
+            f"**Durum:** Bu sembol için Redis'te bulunan işlem kaydı, pozisyonun Binance'te bulunmaması nedeniyle kaldırıldı.\n"
+        )
+        if notes:
+            message += f"\n**Detaylar:** {notes}"
+        else:
+            message += f"\n**Detaylar:** Muhtemelen pozisyon bot kapalıyken manuel olarak veya bir ZD/TSL ile kapatıldı."
+
+        return self.send_message(message)
+
 # Örnek kullanım (bu modülü doğrudan test etmek için)
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
@@ -133,6 +171,12 @@ if __name__ == '__main__':
 
         logger.info("Sending test balance notification...")
         notifier.notify_balance(10000.50, 2, 150.75, notes="Gün sonu test raporu.")
+
+        logger.info("Sending test unmanaged position notification...")
+        notifier.notify_unmanaged_position("XRPUSDT", 100.5, 0.5234, notes="Lütfen manuel olarak kontrol edin.")
+
+        logger.info("Sending test stale trade removed notification...")
+        notifier.notify_stale_trade_removed("DOTUSDT", notes="Pozisyon Binance'te bulunamadı.")
 
         logger.info("Sending a simple message...")
         notifier.send_message("Bottan merhaba! Bu bir *Markdown* testidir. Ve bu `kod`.")
