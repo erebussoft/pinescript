@@ -14,16 +14,13 @@ from telegram_bot import TelegramNotifier
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
-
 # Global değişkenler
 futures_client = None
 telegram_notifier = None
-redis_client = None # Bunu ekle
-synchronization_successful = False # Senkronizasyon bayrağı eklendi
-# active_bot_trades = {} # Bu satırı kaldır
-initialized_symbols_settings = set() # Bu oturumda kaldıraç/marjin ayarlanan sembolleri izler
-# active_trades_lock = threading.Lock() # İsteğe bağlı: gerekirse daha karmaşık sözlük manipülasyonları için
+redis_client = None
+synchronization_successful = False
+initialized_symbols_settings = set()
+app = Flask(__name__) # Flask app instance
 
 def initialize_services():
     global futures_client, telegram_notifier, redis_client, synchronization_successful # synchronization_successful eklendi
@@ -114,6 +111,18 @@ def initialize_services():
             # synchronization_successful False kalır
 
     logger.info("Services initialized.") # Bu satırın yeri önemli, senkronizasyon sonrası olmalı
+
+# Servisleri başlat ve TSL thread'ini ayarla (eğer etkinse)
+initialize_services() # Servis başlatmayı buraya taşı
+
+if config.TRAILING_STOP:
+    # TSL thread'i yalnızca kritik servisler başlatıldıysa VE başlangıç senkronizasyonu başarılıysa başlat
+    if futures_client and telegram_notifier and redis_client and redis_client.is_connected() and synchronization_successful:
+        ts_thread = threading.Thread(target=trailing_stop_loop, daemon=True)
+        ts_thread.start()
+        logger.info(f"Takip Eden Zarar Durdurma (TSL) yöneticisi iş parçacığı başlatıldı (kontrol aralığı: {config.TRAILING_STOP_CHECK_INTERVAL_SECONDS}s).")
+    else:
+        logger.error("Takip Eden Zarar Durdurma (TSL) Yöneticisi başlatılamıyor: Kritik servisler başlatılamadı VEYA başlangıç senkronizasyonu başarısız oldu.")
 
 def handle_trade_signal(data):
     global futures_client, telegram_notifier, initialized_symbols_settings # active_bot_trades kaldırıldı
@@ -365,5 +374,7 @@ if __name__ == "__main__":
         else:
             logger.error("Takip Eden Zarar Durdurma (TSL) Yöneticisi başlatılamıyor: Kritik servisler başlatılamadı VEYA başlangıç senkronizasyonu başarısız oldu.")
 
-    # Üretim için Gunicorn veya Waitress kullanın
-    app.run(host='0.0.0.0', port=5000, debug=False) # üretim için debug=False
+    # Yerel geliştirme sunucusunu yalnızca doğrudan `python main.py` ile çalıştırıldığında başlat
+    # Gunicorn bu bloğu çalıştırmayacak, bunun yerine 'app' Flask nesnesini kullanacaktır.
+    logger.info("Flask geliştirme sunucusu başlatılıyor (yalnızca yerel test için)...")
+    app.run(host='0.0.0.0', port=config.PORT, debug=False) # config.PORT kullanıldı
