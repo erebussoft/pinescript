@@ -6,7 +6,7 @@ import time
 import threading # TSL için eklendi
 # import copy # Artık manage_trailing_stops anahtarların listesi üzerinde yinelendiği için kesinlikle gerekli değil
 from trailing_stop_manager import manage_trailing_stops # TSL için eklendi
-from redis_client import RedisClient
+from database_handler import DatabaseHandler # RedisClient yerine DatabaseHandler import edildi
 from binance_client import BinanceFuturesClient
 from telegram_bot import TelegramNotifier
 
@@ -17,29 +17,30 @@ logger = logging.getLogger(__name__)
 # Global değişkenler
 futures_client = None
 telegram_notifier = None
-redis_client = None
+db_handler = None # redis_client -> db_handler olarak değiştirildi
 synchronization_successful = False
 initialized_symbols_settings = set()
 app = Flask(__name__) # Flask app instance
 
 def initialize_services():
-    global futures_client, telegram_notifier, redis_client, synchronization_successful # synchronization_successful eklendi
+    global futures_client, telegram_notifier, db_handler, synchronization_successful # redis_client -> db_handler
     synchronization_successful = False # Fonksiyon başında bayrağı başlat
     logger.info("Initializing services...")
     telegram_notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID) # Hata raporlama için bunu önce başlat
     futures_client = BinanceFuturesClient(config.BINANCE_API_KEY, config.BINANCE_API_SECRET, telegram_notifier)
 
-    redis_client = RedisClient()
-    if not redis_client.is_connected():
-        # Bu kritik bir başarısızlıktır, bot Redis olmadan çalışamaz
-        message = "KRİTİK: Redis'e bağlanılamadı. Bot işlemleri yönetemez."
-        logger.error(message)
+    try:
+        db_handler = DatabaseHandler(config.DATABASE_FILE)
+        logger.info(f"Veritabanı yöneticisi '{config.DATABASE_FILE}' ile başarıyla başlatıldı.")
+    except Exception as e:
+        message = f"KRİTİK: Veritabanı başlatılamadı ({config.DATABASE_FILE}). Hata: {e}. Bot işlemleri yönetemez."
+        logger.error(message, exc_info=True)
         if telegram_notifier and telegram_notifier.enabled:
             telegram_notifier.notify_error("Bot Servisi KRİTİK Hata", message)
-        # İstenen davranışa bağlı olarak, çıkmak veya daha fazla işlemi engellemek isteyebilirsiniz
-        # Şimdilik, günlük kaydı yapacak ve devam etmeye çalışacak, ancak Redis gerektiren işlemler başarısız olacaktır.
-    else:
-        logger.info("Redis client initialized and connected.")
+        # synchronization_successful False kalacak ve TSL başlamayacak.
+        # Botun burada tamamen durması da düşünülebilir.
+        # Fonksiyonun geri kalanının çalışmaması için burada return edelim.
+        return
 
     logger.info("Checking Binance connection...")
     balance = futures_client.get_usdt_balance() # İlk bakiye kontrolü kritik servislerin çalışıp çalışmadığını görmek için
@@ -51,18 +52,18 @@ def initialize_services():
     else:
         logger.info(f"Binance connection successful. USDT Balance: {balance if balance is not None else 'N/A'}")
         # Başlangıç senkronizasyonunu burada yap
-        if redis_client.is_connected() and futures_client: # futures_client zaten yukarıda kontrol edildi ama güvenlik için tekrar
-            logger.info("Başlangıç: Binance ve Redis arasında pozisyon senkronizasyonu başlatılıyor...")
+        if db_handler and db_handler.conn and futures_client: # db_handler.conn bağlantının varlığını kontrol eder
+            logger.info("Başlangıç: Binance ve Veritabanı arasında pozisyon senkronizasyonu başlatılıyor...")
             try:
                 open_binance_positions_map = futures_client.get_all_open_positions_detailed()
                 logger.info(f"Binance'te {len(open_binance_positions_map)} açık pozisyon bulundu: {list(open_binance_positions_map.keys())}")
 
-                tracked_redis_trades = redis_client.get_all_trades()
-                logger.info(f"Redis'te {len(tracked_redis_trades)} takip edilen işlem bulundu: {list(tracked_redis_trades.keys())}")
+                tracked_db_trades = db_handler.get_all_trades()
+                logger.info(f"Veritabanında {len(tracked_db_trades)} takip edilen işlem bulundu: {list(tracked_db_trades.keys())}")
 
-                # Senaryo 1: Binance'te pozisyon var, Redis'te YOK (Yönetilmeyen Pozisyon)
+                # Senaryo 1: Binance'te pozisyon var, Veritabanında YOK (Yönetilmeyen Pozisyon)
                 for symbol, binance_pos_details in open_binance_positions_map.items():
-                    if symbol not in tracked_redis_trades:
+                    if symbol not in tracked_db_trades:
                         error_msg_detail = (f"Sembol: {symbol}, Miktar: {binance_pos_details['quantity']}, "
                                             f"Binance Giriş Fiyatı: {binance_pos_details['entry_price']}. "
                                             f"Bu pozisyon bot tarafından aktif olarak yönetilmiyor.")
@@ -75,23 +76,23 @@ def initialize_services():
                                 notes="Bu pozisyon bot tarafından İZLENMİYOR. Lütfen manuel olarak kontrol edin."
                             )
 
-                # Senaryo 2: Redis'te işlem var, Binance'te YOK (Eski Redis Kaydı)
-                for symbol, redis_trade_details in list(tracked_redis_trades.items()): # .items() kopyası üzerinde yineleme
+                # Senaryo 2: Veritabanında işlem var, Binance'te YOK (Eski Veritabanı Kaydı)
+                for symbol, db_trade_details in list(tracked_db_trades.items()): # .items() kopyası üzerinde yineleme
                     if symbol not in open_binance_positions_map:
-                        logger.warning(f"Redis'te takip edilen {symbol} işlemi Binance'te açık değil. Muhtemelen bot kapalıyken kapatıldı. Redis'ten kaldırılıyor.")
-                        redis_client.delete_trade(symbol)
+                        logger.warning(f"Veritabanında takip edilen {symbol} işlemi Binance'te açık değil. Muhtemelen bot kapalıyken kapatıldı. Veritabanından kaldırılıyor.")
+                        db_handler.delete_trade(symbol)
                         if telegram_notifier.enabled:
                             telegram_notifier.notify_stale_trade_removed(
                                 symbol,
                                 notes=f"Pozisyon Binance'te bulunamadı. {symbol} takipten çıkarıldı."
                             )
                     elif symbol in open_binance_positions_map:
-                         logger.info(f"Aktif işlem {symbol} hem Binance'te hem de Redis'te bulundu ve senkronize. Takip devam ediyor.")
+                         logger.info(f"Aktif işlem {symbol} hem Binance'te hem de Veritabanında bulundu ve senkronize. Takip devam ediyor.")
                          # İsteğe bağlı: Daha derin bir kontrol için miktarları karşılaştırın
-                         # if abs(open_binance_positions_map[symbol]['quantity']) != abs(redis_trade_details['quantity']):
-                         #     logger.warning(f"{symbol} için Binance ve Redis miktarları farklı! Binance: {open_binance_positions_map[symbol]['quantity']}, Redis: {redis_trade_details['quantity']}")
+                         # if abs(open_binance_positions_map[symbol]['quantity']) != abs(db_trade_details['quantity']):
+                         #     logger.warning(f"{symbol} için Binance ve Veritabanı miktarları farklı! Binance: {open_binance_positions_map[symbol]['quantity']}, Veritabanı: {db_trade_details['quantity']}")
                          #     if telegram_notifier.enabled:
-                         #         telegram_notifier.notify_error(f"Miktar Uyuşmazlığı: {symbol}", "Binance ve Redis miktarları farklı. Manuel kontrol gerekli.")
+                         #         telegram_notifier.notify_error(f"Miktar Uyuşmazlığı: {symbol}", "Binance ve Veritabanı miktarları farklı. Manuel kontrol gerekli.")
 
                 logger.info("Başlangıç pozisyon senkronizasyonu başarıyla tamamlandı.")
                 synchronization_successful = True
@@ -107,7 +108,7 @@ def initialize_services():
                     )
                 # synchronization_successful False kalır (zaten başlangıçta False)
         else:
-            logger.error("Redis veya Futures istemcisi düzgün başlatılamadığı için başlangıç senkronizasyonu atlandı.")
+            logger.error("Veritabanı veya Futures istemcisi düzgün başlatılamadığı için başlangıç senkronizasyonu atlandı.")
             # synchronization_successful False kalır
 
     logger.info("Services initialized.") # Bu satırın yeri önemli, senkronizasyon sonrası olmalı
@@ -117,7 +118,7 @@ initialize_services() # Servis başlatmayı buraya taşı
 
 if config.TRAILING_STOP:
     # TSL thread'i yalnızca kritik servisler başlatıldıysa VE başlangıç senkronizasyonu başarılıysa başlat
-    if futures_client and telegram_notifier and redis_client and redis_client.is_connected() and synchronization_successful:
+    if futures_client and telegram_notifier and db_handler and db_handler.conn and synchronization_successful:
         ts_thread = threading.Thread(target=trailing_stop_loop, daemon=True)
         ts_thread.start()
         logger.info(f"Takip Eden Zarar Durdurma (TSL) yöneticisi iş parçacığı başlatıldı (kontrol aralığı: {config.TRAILING_STOP_CHECK_INTERVAL_SECONDS}s).")
@@ -126,8 +127,10 @@ if config.TRAILING_STOP:
 
 def handle_trade_signal(data):
     global futures_client, telegram_notifier, initialized_symbols_settings # active_bot_trades kaldırıldı
-    if not futures_client or not telegram_notifier or not redis_client: # redis_client kontrolü eklendi
-        logger.error("Services not initialized (or Redis not connected). Cannot handle trade signal.")
+    # db_handler global olmasına rağmen, burada tekrar global olarak bildirmeye gerek yok çünkü initialize_services içinde zaten ayarlandı.
+    # Ancak, None olup olmadığını kontrol etmek önemlidir.
+    if not futures_client or not telegram_notifier or not db_handler or not db_handler.conn: # redis_client -> db_handler.conn
+        logger.error("Servisler başlatılmadı (veya Veritabanı bağlı değil). İşlem sinyali işlenemiyor.")
         return
 
     signal_type = data['signal_type']
@@ -135,10 +138,10 @@ def handle_trade_signal(data):
     entry_price = float(data['close_price'])
 
     logger.info(f"Processing {signal_type} signal for {symbol} at {entry_price}")
-    existing_trade_details = redis_client.get_trade(symbol)
+    existing_trade_details = db_handler.get_trade(symbol) # redis_client -> db_handler
 
     if existing_trade_details:
-        logger.info(f"İşlemde olan bir pozisyon bulundu {symbol} Redis'te: {existing_trade_details}")
+        logger.info(f"İşlemde olan bir pozisyon bulundu {symbol} Veritabanında: {existing_trade_details}") # Redis -> Veritabanında
         if existing_trade_details['signal_type'] == signal_type:
             # Same direction signal
             message = f"{symbol} için mevcut pozisyonla aynı yönde ({signal_type}) bir sinyal alındı. Sinyal yok sayılıyor."
@@ -173,8 +176,8 @@ def handle_trade_signal(data):
                     )
 
                 # 3c. Remove old trade from Redis
-                redis_client.delete_trade(symbol)
-                logger.info(f"{symbol} için eski işlem detayları Redis'ten silindi.")
+                db_handler.delete_trade(symbol) # redis_client -> db_handler
+                logger.info(f"{symbol} için eski işlem detayları Veritabanından silindi.") # Redis -> Veritabanından
 
                 # IMPORTANT: Reset initialized_symbols_settings for the symbol to allow re-setting leverage/margin if needed for the new trade.
                 if symbol in initialized_symbols_settings:
@@ -289,14 +292,14 @@ def handle_trade_signal(data):
         'lowest_price_since_trailing_activation': actual_filled_entry_price if signal_type == 'short' else float('inf'),
         'timestamp': time.time()
     }
-    if redis_client.set_trade(symbol, trade_details):
-        logger.info(f"Trade {symbol} details stored in Redis. Details: {trade_details}")
+    if db_handler.set_trade(symbol, trade_details): # redis_client -> db_handler
+        logger.info(f"{symbol} işlem detayları Veritabanına kaydedildi. Detaylar: {trade_details}") # Redis -> Veritabanına
     else:
         # Bu kritik bir sorundur, çünkü işlem açık ancak izlenmiyor.
-        error_message = f"KRİTİK: Emirler verildikten sonra {symbol} işlemi Redis'e kaydedilemedi. Manuel izleme gerekli."
+        error_message = f"KRİTİK: Emirler verildikten sonra {symbol} işlemi Veritabanına kaydedilemedi. Manuel izleme gerekli." # Redis -> Veritabanına
         logger.error(error_message)
         if telegram_notifier.enabled: # Kullanmadan önce bildirimcinin etkin olup olmadığını kontrol et
-            telegram_notifier.notify_error("Redis Kayıt Hatası", error_message)
+            telegram_notifier.notify_error("Veritabanı Kayıt Hatası", error_message) # Redis -> Veritabanı
         # Bunun nasıl ele alınacağını düşünün: emirleri iptal etmeye çalışın? Şimdilik, günlük tutun ve bildirin.
 
 
@@ -345,12 +348,12 @@ def webhook():
         return jsonify({"status": "error", "message": "Internal server error"}), 500
 
 def trailing_stop_loop():
-    global futures_client, telegram_notifier, redis_client # active_bot_trades kaldırıldı, redis_client eklendi
+    global futures_client, telegram_notifier, db_handler # redis_client -> db_handler
     logger.info("Trailing stop manager thread started.")
     while True:
         try:
             # Argümanları manage_trailing_stops'a geçir
-            manage_trailing_stops(futures_client, telegram_notifier, redis_client) # redis_client'ı geçir
+            manage_trailing_stops(futures_client, telegram_notifier, db_handler) # redis_client -> db_handler
         except Exception as e:
             logger.error(f"Exception in trailing_stop_loop: {e}", exc_info=True)
             if telegram_notifier and telegram_notifier.enabled:

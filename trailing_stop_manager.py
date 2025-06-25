@@ -9,30 +9,30 @@ from binance.exceptions import BinanceAPIException
 
 logger = logging.getLogger(__name__)
 
-def manage_trailing_stops(futures_client, telegram_notifier, redis_client):
+def manage_trailing_stops(futures_client, telegram_notifier, db_handler): # redis_client -> db_handler
     # Redis'in tek anahtarlar üzerindeki işlemleri genellikle atomik olduğundan active_trades_lock kaldırıldı.
 
     if not config.TRAILING_STOP or not futures_client:
         logger.debug("Trailing stop is disabled in config or futures_client not available.")
         return
 
-    logger.debug("Querying active trade symbols from Redis for TSL management...")
+    logger.debug("Veritabanından TSL yönetimi için aktif işlem verileri sorgulanıyor...") # Redis -> Veritabanından
 
-    if not redis_client or not redis_client.is_connected():
-        logger.error("Redis client not available or not connected in TSL manager. Skipping TSL cycle.")
+    if not db_handler or not db_handler.conn: # redis_client -> db_handler.conn
+        logger.error("Veritabanı işleyici mevcut değil veya bağlı değil. TSL döngüsü atlanıyor.") # Redis client -> Veritabanı işleyici
         return
 
-    active_trade_symbols = redis_client.get_all_trade_symbols()
-    if not active_trade_symbols:
-        logger.debug("No active trades found in Redis to manage.")
+    active_trades_map = db_handler.get_all_trades() # redis_client.get_all_trade_symbols() ve get_trade() yerine
+    if not active_trades_map:
+        logger.debug("Veritabanında yönetilecek aktif işlem bulunamadı.") # Redis -> Veritabanında
         return
-    logger.info(f"Found {len(active_trade_symbols)} active trades in Redis to manage: {active_trade_symbols}")
+    logger.info(f"Veritabanında {len(active_trades_map)} aktif işlem bulundu: {list(active_trades_map.keys())}") # Redis -> Veritabanında
 
-    for symbol in active_trade_symbols:
-        trade_details = redis_client.get_trade(symbol)
-        if not trade_details:
-            logger.warning(f"Could not retrieve trade details for symbol {symbol} from Redis, or it was deleted. Skipping.")
-            continue
+    for symbol, trade_details in list(active_trades_map.items()): # .items() kopyası üzerinde yineleme
+        # trade_details = db_handler.get_trade(symbol) # Bu artık gereksiz, döngü zaten veriyor
+        # if not trade_details: # Bu kontrol de gereksiz
+        #     logger.warning(f"Could not retrieve trade details for symbol {symbol} from DB, or it was deleted. Skipping.")
+        #     continue
 
         if trade_details.get('status') != "open":
             logger.debug(f"Trade {symbol} is not open (status: {trade_details.get('status')}). Skipping TSL.")
@@ -70,7 +70,7 @@ def manage_trailing_stops(futures_client, telegram_notifier, redis_client):
                     notes="Pozisyon Binance'te kapanmış görünüyor (TSL yöneticisi tarafından algılandı)."
                 )
                 # Anahtarı güvenle sil
-                redis_client.delete_trade(symbol)
+                db_handler.delete_trade(symbol) # redis_client -> db_handler
                 continue
 
             current_price = float(position_info.get('markPrice', 0))
@@ -104,9 +104,9 @@ def manage_trailing_stops(futures_client, telegram_notifier, redis_client):
                         trade_details['lowest_price_since_trailing_activation'] = current_price  # Varsayılan
 
                     logger.info(f"Trailing stop ACTIVATED for {symbol} at P&L ratio: {pnl_ratio:.4f}, Current Price: {current_price}")
-                    if not redis_client.set_trade(symbol, trade_details):
-                        logger.error(f"Failed to update trade details in Redis for {symbol} after TSL activation.")
-                        # Redis'teki durum bu işlem için potansiyel olarak eski olduğundan bir sonraki sembole devam et.
+                    if not db_handler.set_trade(symbol, trade_details): # redis_client -> db_handler
+                        logger.error(f"TSL aktivasyonu sonrası {symbol} için işlem detayları Veritabanında güncellenemedi.") # Redis -> Veritabanında
+                        # Veritabanındaki durum bu işlem için potansiyel olarak eski olduğundan bir sonraki sembole devam et.
                         continue # Bu döngüde bu sembol için daha fazla işlem yapmayı atla
                     telegram_notifier.send_message(f"🟢 Takip Eden Zarar Durdurma Aktifleşti ({symbol})\nSembol: {symbol}\nYön: {signal_type.upper()}\nGiriş: {entry_price:.4f}\nMevcut Fiyat: {current_price:.4f}\nKâr: {pnl_ratio*100:.2f}%")
 
@@ -120,8 +120,8 @@ def manage_trailing_stops(futures_client, telegram_notifier, redis_client):
 
                     # SL henüz hareket etmese bile, değiştiyse güncellenmiş en yüksek fiyatı kalıcı hale getir
                     if trade_details['highest_price_since_trailing_activation'] != previous_highest:
-                        if not redis_client.set_trade(symbol, trade_details):
-                            logger.warning(f"Failed to update highest_price_since_trailing_activation for {symbol} in Redis. TSL calculations might use stale data if restarted.")
+                        if not db_handler.set_trade(symbol, trade_details): # redis_client -> db_handler
+                            logger.warning(f"{symbol} için highest_price_since_trailing_activation Veritabanında güncellenemedi. Yeniden başlatılırsa TSL hesaplamaları eski veri kullanabilir.") # Redis -> Veritabanında
                             # Burada devam etmiyoruz, çünkü mantığın geri kalanı bu döngü için bellek içi güncellemeyle devam edebilir
 
                     calculated_sl = trade_details['highest_price_since_trailing_activation'] * (1 - config.TRAILING_STOP_POSITIVE)
@@ -134,8 +134,8 @@ def manage_trailing_stops(futures_client, telegram_notifier, redis_client):
 
                     # Değiştiyse güncellenmiş en düşük fiyatı kalıcı hale getir
                     if trade_details['lowest_price_since_trailing_activation'] != previous_lowest:
-                        if not redis_client.set_trade(symbol, trade_details):
-                             logger.warning(f"Failed to update lowest_price_since_trailing_activation for {symbol} in Redis. TSL calculations might use stale data if restarted.")
+                        if not db_handler.set_trade(symbol, trade_details): # redis_client -> db_handler
+                             logger.warning(f"{symbol} için lowest_price_since_trailing_activation Veritabanında güncellenemedi. Yeniden başlatılırsa TSL hesaplamaları eski veri kullanabilir.") # Redis -> Veritabanında
 
                     calculated_sl = trade_details['lowest_price_since_trailing_activation'] * (1 + config.TRAILING_STOP_POSITIVE)
                     if calculated_sl < current_sl_price and calculated_sl < entry_price: # SL'nin girişin de altında olduğundan emin olun
@@ -182,26 +182,26 @@ def manage_trailing_stops(futures_client, telegram_notifier, redis_client):
                             trade_details['sl_order_id'] = new_sl_order_direct['orderId']
                             trade_details['current_sl_price'] = adjusted_new_sl_price
                             logger.info(f"New TSL order for {symbol} placed. ID: {new_sl_order_direct['orderId']}, Price: {adjusted_new_sl_price}")
-                            if not redis_client.set_trade(symbol, trade_details):
-                                logger.error(f"CRITICAL: Failed to update trade {symbol} in Redis with new TSL order ID {new_sl_order_direct['orderId']}. State mismatch possible.")
+                            if not db_handler.set_trade(symbol, trade_details): # redis_client -> db_handler
+                                logger.error(f"KRİTİK: {symbol} işlemi yeni TSL emir ID {new_sl_order_direct['orderId']} ile Veritabanında güncellenemedi. Durum uyuşmazlığı olabilir.") # Redis -> Veritabanında
                             telegram_notifier.send_message(f"⚙️ Takip Eden ZD Güncellendi ({symbol})\nSembol: {symbol}\nYeni ZD Fiyatı: {adjusted_new_sl_price:.4f}")
                         else:
                             logger.error(f"CRITICAL: Old SL for {symbol} cancelled but FAILED to place new TSL order at {adjusted_new_sl_price}. POSITION IS UNPROTECTED.")
                             telegram_notifier.notify_error(f"KRİTİK TSL Hatası: {symbol}", f"Eski ZD iptal edildi, yeni TSL BAŞARISIZ. POZİSYON KORUMASIZ. Denenen ZD: {adjusted_new_sl_price:.4f}. Manuel müdahale gerekli!")
-                            redis_client.delete_trade(symbol) # Aktif yönetimden kaldır
+                            db_handler.delete_trade(symbol) # Aktif yönetimden kaldır # redis_client -> db_handler
 
                     except BinanceAPIException as cancel_e:
                         logger.error(f"Failed to cancel old SL order {sl_order_id} for {symbol} during TSL update: {cancel_e}")
                         if cancel_e.code == -2011: # Emir zaten doldurulmuş veya iptal edilmiş
                              logger.info(f"Old SL {sl_order_id} for {symbol} was already filled/cancelled. Removing from TSL management.")
-                             redis_client.delete_trade(symbol)
+                             db_handler.delete_trade(symbol) # redis_client -> db_handler
                         # aksi takdirde, birden fazla SL'den kaçınmak için yeni SL yerleştirmeyin. Bir sonraki döngüde yeniden denenecektir.
 
         except BinanceAPIException as e:
             logger.error(f"Binance API Error managing TSL for {symbol}: {e}", exc_info=False) # Yaygın API hataları için daha az ayrıntılı günlükler için exc_info=False olarak ayarlayın
             if e.code == -2011 and trade_details.get('sl_order_id'): # Bilinmeyen emir gönderildi. (ör. SL zaten iptal edilmiş / doldurulmuş)
                 logger.warning(f"SL Order for {symbol} (ID: {trade_details['sl_order_id']}) likely filled or already cancelled. Removing from TSL management.")
-                redis_client.delete_trade(symbol)
+                db_handler.delete_trade(symbol) # redis_client -> db_handler
             # Kritik olmayan API hataları için burada daha spesifik hata işleme veya daha az sık bildirimleri düşünün
         except Exception as e:
             logger.error(f"Generic Error managing TSL for {symbol}: {e}", exc_info=True)
