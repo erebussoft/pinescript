@@ -1,5 +1,5 @@
 //@version=5
-strategy(title="Trader Circle_Strategy", shorttitle="TC2 Ind", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100, pyramiding=0)
+indicator(title="Trader Circle_Indicator Advanced Filters @byTlos", shorttitle="TC Ind", overlay=true)
 
 // ───────── USER INPUTS ───────── //
 minConfirmations = input.int(2, title="Min. Timeframe Confirmations", minval=1, maxval=5)
@@ -188,35 +188,28 @@ bool h4BearishConfirm = h4MomentumBearish and h4VolumeBearish
 bool finalLong  = combinedLong  and finalLongFilter and h4BullishConfirm
 bool finalShort = combinedShort and finalShortFilter and h4BearishConfirm
 
-// ───────── ALARM KONTROLÜ (YENİDEN BOYAMAYI ÖNLEMEK İÇİN) - STRATEJİDE GEREKLİ DEĞİL ───────── //
-// Sinyalin sadece ilk oluştuğu barda (mum kapanışında) alarm vermesi için kontrol
-// bool longAlarmCondition = finalLong and not finalLong[1]  <- Strateji mantığı bunu otomatik yapar
-// bool shortAlarmCondition = finalShort and not finalShort[1] <- Strateji mantığı bunu otomatik yapar
+// ───────── STRATEGY LOGIC ───────── //
+// if finalLong
+    // strategy.close("Short")  // Short pozisyonu kapat
+    // strategy.entry("Long", strategy.long)  // Long pozisyon aç
 
-// ───────── STRATEGY LOGIC & WEBHOOK MESSAGES ───────── //
-// Webhook için JSON formatında alarm mesajları oluştur
-string long_alert_json = '{"signal_type": "long", "ticker": "' + syminfo.ticker + '", "close_price": "{{close}}", "exchange": "' + syminfo.prefix + '", "interval": "' + timeframe.period + '"}'
-string short_alert_json = '{"signal_type": "short", "ticker": "' + syminfo.ticker + '", "close_price": "{{close}}", "exchange": "' + syminfo.prefix + '", "interval": "' + timeframe.period + '"}'
-
-if (finalLong)
-    strategy.close("Short", comment="Short Kapat") 
-    strategy.entry("Long", strategy.long, comment="Long Aç", alert_message=long_alert_json)
-
-if (finalShort)
-    strategy.close("Long", comment="Long Kapat")
-    strategy.entry("Short", strategy.short, comment="Short Aç", alert_message=short_alert_json)
+// if finalShort
+    // strategy.close("Long")  // Long pozisyonu kapat
+    // strategy.entry("Short", strategy.short)  // Short pozisyon aç
 
 // ───────── PLOT COMBINED SIGNALS (4H TEYİTLİ) ───────── //
 plotshape(series=finalLong,  title="MTF+4H Teyitli Long",  style=shape.triangleup,   location=location.belowbar, color=cFinalLong,  size=size.normal, text="4H Teyitli Long",  textcolor=cFinalLong)
 plotshape(series=finalShort, title="MTF+4H Teyitli Short", style=shape.triangledown, location=location.abovebar, color=cFinalShort, size=size.normal, text="4H Teyitli Short", textcolor=cFinalShort)
 
-
 //─────────────────────────────────────────────────────────────
-// ALARM KOŞULLARI - STRATEJİDE ARTIK GEREKLİ DEĞİL
+// ALARM KOŞULLARI - 4H TEYİTLİ SİNYALLER (KULLANICI AYARLARINA GÖRE)
 //─────────────────────────────────────────────────────────────
 
-// alertcondition fonksiyonları kaldırıldı. Alarmlar artık strateji üzerinden kurulacak.
+// 4H Teyitli Long Alarm
+alertcondition(condition = enableAlerts and alertOnLongSignal and finalLong, title = "🟢 4H Teyitli LONG Sinyali", message = "🚀 4H TEYİTLİ LONG SİNYALİ!\n📊 Sembol: {{ticker}}\n⏰ Zaman: {{time}}\n💰 Fiyat: {{close}}\n✅ 4H Momentum: Pozitif\n✅ 4H Hacim: Pozitif\n📈 Long pozisyon açılabilir!")
 
+// 4H Teyitli Short Alarm
+alertcondition(condition = enableAlerts and alertOnShortSignal and finalShort, title = "🔴 4H Teyitli SHORT Sinyali", message = "📉 4H TEYİTLİ SHORT SİNYALİ!\n📊 Sembol: {{ticker}}\n⏰ Zaman: {{time}}\n💰 Fiyat: {{close}}\n❌ 4H Momentum: Negatif\n❌ 4H Hacim: Negatif\n📉 Short pozisyon açılabilir!")
 
 // ───────── EK ALARM AYARLARI ───────── //
 enableStrongSignalAlerts = input.bool(true, title="🔔 Güçlü Sinyal Alarmları", group="ALARM AYARLARI")
