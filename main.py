@@ -37,22 +37,17 @@ def initialize_services():
         logger.error(message, exc_info=True)
         if telegram_notifier and telegram_notifier.enabled:
             telegram_notifier.notify_error("Bot Servisi KRİTİK Hata", message)
-        # synchronization_successful False kalacak ve TSL başlamayacak.
-        # Botun burada tamamen durması da düşünülebilir.
-        # Fonksiyonun geri kalanının çalışmaması için burada return edelim.
         return
 
     logger.info("Checking Binance connection...")
-    balance = futures_client.get_usdt_balance() # İlk bakiye kontrolü kritik servislerin çalışıp çalışmadığını görmek için
-    if balance is None: # Daha sıkı kontrol, API anahtarı demo olsa bile None dönmemeli
+    balance = futures_client.get_usdt_balance()
+    if balance is None:
         logger.error("Failed to connect to Binance or retrieve balance. Check API keys, permissions, or network. Bot cannot start trading without Binance connection.")
         if telegram_notifier.enabled:
              telegram_notifier.notify_error("Bot Servisi KRİTİK Hata", "Binance'e bağlanılamadı veya bakiye alınamadı. Bot ticarete başlayamaz.")
-        # synchronization_successful False kalır
     else:
         logger.info(f"Binance connection successful. USDT Balance: {balance if balance is not None else 'N/A'}")
-        # Başlangıç senkronizasyonunu burada yap
-        if db_handler and db_handler.conn and futures_client: # db_handler.conn bağlantının varlığını kontrol eder
+        if db_handler and db_handler.conn and futures_client:
             logger.info("Başlangıç: Binance ve Veritabanı arasında pozisyon senkronizasyonu başlatılıyor...")
             try:
                 open_binance_positions_map = futures_client.get_all_open_positions_detailed()
@@ -61,7 +56,6 @@ def initialize_services():
                 tracked_db_trades = db_handler.get_all_trades()
                 logger.info(f"Veritabanında {len(tracked_db_trades)} takip edilen işlem bulundu: {list(tracked_db_trades.keys())}")
 
-                # Senaryo 1: Binance'te pozisyon var, Veritabanında YOK (Yönetilmeyen Pozisyon)
                 for symbol, binance_pos_details in open_binance_positions_map.items():
                     if symbol not in tracked_db_trades:
                         error_msg_detail = (f"Sembol: {symbol}, Miktar: {binance_pos_details['quantity']}, "
@@ -76,8 +70,7 @@ def initialize_services():
                                 notes="Bu pozisyon bot tarafından İZLENMİYOR. Lütfen manuel olarak kontrol edin."
                             )
 
-                # Senaryo 2: Veritabanında işlem var, Binance'te YOK (Eski Veritabanı Kaydı)
-                for symbol, db_trade_details in list(tracked_db_trades.items()): # .items() kopyası üzerinde yineleme
+                for symbol, db_trade_details in list(tracked_db_trades.items()):
                     if symbol not in open_binance_positions_map:
                         logger.warning(f"Veritabanında takip edilen {symbol} işlemi Binance'te açık değil. Muhtemelen bot kapalıyken kapatıldı. Veritabanından kaldırılıyor.")
                         db_handler.delete_trade(symbol)
@@ -88,15 +81,10 @@ def initialize_services():
                             )
                     elif symbol in open_binance_positions_map:
                          logger.info(f"Aktif işlem {symbol} hem Binance'te hem de Veritabanında bulundu ve senkronize. Takip devam ediyor.")
-                         # İsteğe bağlı: Daha derin bir kontrol için miktarları karşılaştırın
-                         # if abs(open_binance_positions_map[symbol]['quantity']) != abs(db_trade_details['quantity']):
-                         #     logger.warning(f"{symbol} için Binance ve Veritabanı miktarları farklı! Binance: {open_binance_positions_map[symbol]['quantity']}, Veritabanı: {db_trade_details['quantity']}")
-                         #     if telegram_notifier.enabled:
-                         #         telegram_notifier.notify_error(f"Miktar Uyuşmazlığı: {symbol}", "Binance ve Veritabanı miktarları farklı. Manuel kontrol gerekli.")
 
                 logger.info("Başlangıç pozisyon senkronizasyonu başarıyla tamamlandı.")
                 synchronization_successful = True
-                if telegram_notifier.enabled: # Sadece senkronizasyon başarılıysa başlangıç mesajı gönder
+                if telegram_notifier.enabled:
                     telegram_notifier.send_message("🤖 Trading Bot Sunucusu Başarıyla Başlatıldı\n🟢 Webhook sinyalleri dinleniyor.\n🔄 Pozisyonlar senkronize edildi.")
 
             except Exception as e:
@@ -106,30 +94,49 @@ def initialize_services():
                         "Senkronizasyon Hatası",
                         f"Bot başlarken pozisyonlar senkronize edilemedi: {str(e)}"
                     )
-                # synchronization_successful False kalır (zaten başlangıçta False)
         else:
             logger.error("Veritabanı veya Futures istemcisi düzgün başlatılamadığı için başlangıç senkronizasyonu atlandı.")
-            # synchronization_successful False kalır
+    logger.info("Services initialized.")
 
-    logger.info("Services initialized.") # Bu satırın yeri önemli, senkronizasyon sonrası olmalı
+def trailing_stop_loop():
+    global futures_client, telegram_notifier, db_handler, synchronization_successful
+    logger.info("Takip Eden Zarar Durdurma (TSL) döngüsü iş parçacığı içinde başlatıldı ve çalışıyor.")
+    while True:
+        try:
+            if not (futures_client and hasattr(futures_client, 'client') and
+                    telegram_notifier and
+                    db_handler and db_handler.conn and
+                    synchronization_successful):
+                logger.warning("TSL döngüsü: Kritik servisler (Binance, Telegram, Veritabanı) henüz hazır değil veya başlangıç senkronizasyonu başarısız. 5 saniye bekleniyor...")
+                time.sleep(5)
+                continue
+
+            manage_trailing_stops(futures_client, telegram_notifier, db_handler)
+        except Exception as e:
+            logger.error(f"TSL döngüsünde istisna: {e}", exc_info=True)
+            if telegram_notifier and telegram_notifier.enabled:
+                 telegram_notifier.notify_error("TSL Döngü İstisnası", str(e))
+
+        sleep_duration = config.TRAILING_STOP_CHECK_INTERVAL_SECONDS
+        if sleep_duration < 10:
+            logger.warning(f"TRAILING_STOP_CHECK_INTERVAL_SECONDS ({sleep_duration}s) çok düşük. Güvenlik için minimum 10s olarak ayarlanıyor.")
+            sleep_duration = 10
+        time.sleep(sleep_duration)
 
 # Servisleri başlat ve TSL thread'ini ayarla (eğer etkinse)
-initialize_services() # Servis başlatmayı buraya taşı
+initialize_services()
 
 if config.TRAILING_STOP:
-    # TSL thread'i yalnızca kritik servisler başlatıldıysa VE başlangıç senkronizasyonu başarılıysa başlat
-    if futures_client and telegram_notifier and db_handler and db_handler.conn and synchronization_successful:
+    if futures_client and hasattr(futures_client, 'client') and telegram_notifier and db_handler and db_handler.conn and synchronization_successful:
         ts_thread = threading.Thread(target=trailing_stop_loop, daemon=True)
         ts_thread.start()
-        logger.info(f"Takip Eden Zarar Durdurma (TSL) yöneticisi iş parçacığı başlatıldı (kontrol aralığı: {config.TRAILING_STOP_CHECK_INTERVAL_SECONDS}s).")
+        logger.info(f"Takip Eden Zarar Durdurma (TSL) yöneticisi iş parçacığı (thread) için başlatma komutu verildi (kontrol aralığı: {config.TRAILING_STOP_CHECK_INTERVAL_SECONDS}s).")
     else:
         logger.error("Takip Eden Zarar Durdurma (TSL) Yöneticisi başlatılamıyor: Kritik servisler başlatılamadı VEYA başlangıç senkronizasyonu başarısız oldu.")
 
 def handle_trade_signal(data):
-    global futures_client, telegram_notifier, initialized_symbols_settings # active_bot_trades kaldırıldı
-    # db_handler global olmasına rağmen, burada tekrar global olarak bildirmeye gerek yok çünkü initialize_services içinde zaten ayarlandı.
-    # Ancak, None olup olmadığını kontrol etmek önemlidir.
-    if not futures_client or not telegram_notifier or not db_handler or not db_handler.conn: # redis_client -> db_handler.conn
+    global futures_client, telegram_notifier, initialized_symbols_settings
+    if not futures_client or not telegram_notifier or not db_handler or not db_handler.conn:
         logger.error("Servisler başlatılmadı (veya Veritabanı bağlı değil). İşlem sinyali işlenemiyor.")
         return
 
@@ -138,66 +145,52 @@ def handle_trade_signal(data):
     entry_price = float(data['close_price'])
 
     logger.info(f"Processing {signal_type} signal for {symbol} at {entry_price}")
-    existing_trade_details = db_handler.get_trade(symbol) # redis_client -> db_handler
+    existing_trade_details = db_handler.get_trade(symbol)
 
     if existing_trade_details:
-        logger.info(f"İşlemde olan bir pozisyon bulundu {symbol} Veritabanında: {existing_trade_details}") # Redis -> Veritabanında
+        logger.info(f"İşlemde olan bir pozisyon bulundu {symbol} Veritabanında: {existing_trade_details}")
         if existing_trade_details['signal_type'] == signal_type:
-            # Same direction signal
             message = f"{symbol} için mevcut pozisyonla aynı yönde ({signal_type}) bir sinyal alındı. Sinyal yok sayılıyor."
             logger.warning(message)
-            # Optional: Send to Telegram if desired
-            # if telegram_notifier.enabled: telegram_notifier.send_message(f"ℹ️ {message}")
             return
         else:
-            # Opposite direction signal - Reverse logic
             logger.info(f"{symbol} için mevcut pozisyona ters yönde ({signal_type}) bir sinyal alındı. Pozisyon tersine çevrilecek.")
 
-            # 3a. Close existing position
             logger.info(f"Mevcut {existing_trade_details['signal_type']} pozisyonu kapatılıyor: {symbol}...")
-            # We'll assume a function like close_trade_at_market(symbol, quantity, original_signal_type) exists or will be added to binance_client.py
-            # It should return details like exit price. For now, placeholder:
-            closure_details = futures_client.close_trade_at_market( # This function needs to be implemented in binance_client.py
+            closure_details = futures_client.close_trade_at_market(
                 symbol,
                 existing_trade_details['quantity'],
                 existing_trade_details['signal_type']
             )
 
-            if closure_details and closure_details.get('avgPrice'): # Check for avgPrice or other indicators of success
+            if closure_details and closure_details.get('avgPrice'):
                 logger.info(f"{symbol} pozisyonu başarıyla kapatıldı. Çıkış fiyatı: {closure_details.get('avgPrice')}")
-                # 3b. Send Telegram notification for closure (using a new specific notifier method to be created)
                 if telegram_notifier.enabled:
-                    telegram_notifier.notify_trade_reverse_closure( # This function needs to be implemented in telegram_bot.py
+                    telegram_notifier.notify_trade_reverse_closure(
                         symbol,
-                        existing_trade_details['signal_type'], # original direction
+                        existing_trade_details['signal_type'],
                         float(closure_details.get('avgPrice')),
                         existing_trade_details['quantity'],
                         notes=f"Ters sinyal ({signal_type}) nedeniyle kapatıldı."
                     )
 
-                # 3c. Remove old trade from Redis
-                db_handler.delete_trade(symbol) # redis_client -> db_handler
-                logger.info(f"{symbol} için eski işlem detayları Veritabanından silindi.") # Redis -> Veritabanından
+                db_handler.delete_trade(symbol)
+                logger.info(f"{symbol} için eski işlem detayları Veritabanından silindi.")
 
-                # IMPORTANT: Reset initialized_symbols_settings for the symbol to allow re-setting leverage/margin if needed for the new trade.
                 if symbol in initialized_symbols_settings:
                     initialized_symbols_settings.remove(symbol)
                 logger.info(f"{symbol} için kaldıraç/marjin ayarlarının yeniden doğrulanmasına izin verildi.")
 
-                # 3d. Proceed to open new trade (logic continues below, as if no trade existed)
                 logger.info(f"{symbol} için yeni {signal_type} pozisyonu açma işlemine devam ediliyor.")
-                # Set existing_trade_details to None so the rest of the logic proceeds as a new trade
                 existing_trade_details = None
             else:
                 message = f"KRİTİK: {symbol} için mevcut pozisyon kapatılamadı. Yeni {signal_type} işlemi AÇILMAYACAK."
                 logger.error(message)
                 if telegram_notifier.enabled:
                     telegram_notifier.notify_error(f"Pozisyon Kapatma Hatası: {symbol}", message)
-                return # Do not proceed to open new trade
+                return
 
-    # If existing_trade_details was None OR if it was an opposite signal and successfully closed:
-    # New placement for MAX_OPEN_TRADES check:
-    if not existing_trade_details: # Only check if it's a truly new trade, not a reversal that just closed one.
+    if not existing_trade_details:
         open_positions_count = futures_client.get_open_positions_count()
         if open_positions_count is not None and open_positions_count >= config.MAX_OPEN_TRADES:
             message = f"Maksimum açık işlem sayısına ({config.MAX_OPEN_TRADES}) ulaşıldı. {symbol} için {signal_type} sinyali yok sayılıyor."
@@ -205,8 +198,7 @@ def handle_trade_signal(data):
             if telegram_notifier.enabled: telegram_notifier.send_message(f"⚠️ {message}")
             return
 
-    # The original check for existing position on Binance (unmanaged by bot)
-    if not existing_trade_details: # If we are not in a reversal flow (already handled or was not an existing bot trade)
+    if not existing_trade_details:
         logger.debug(f"No prior bot-managed trade found for {symbol}. Checking Binance for unmanaged positions.")
         existing_position_on_binance = futures_client.get_open_position_for_symbol(symbol)
         if existing_position_on_binance and float(existing_position_on_binance.get('positionAmt', 0)) != 0:
@@ -215,17 +207,16 @@ def handle_trade_signal(data):
             if telegram_notifier.enabled: telegram_notifier.notify_error(f"Çakışma Uyarısı: {symbol}", message)
             return
 
-    # Remainder of the original logic for opening a new trade starts here
     if symbol not in initialized_symbols_settings:
         logger.info(f"Configuring {symbol} for leverage {config.LEVERAGE}x and margin type {config.MARGIN_TYPE}...")
         leverage_ok = futures_client.set_leverage(symbol, config.LEVERAGE)
         if not leverage_ok:
-            message = f"Failed to set leverage for {symbol}. Cannot proceed with trade." # Log message
+            message = f"Failed to set leverage for {symbol}. Cannot proceed with trade."
             logger.error(message)
             return
         margin_type_ok = futures_client.set_margin_type(symbol, config.MARGIN_TYPE)
         if not margin_type_ok:
-            message = f"Failed to set margin type for {symbol}. Cannot proceed with trade." # Log message
+            message = f"Failed to set margin type for {symbol}. Cannot proceed with trade."
             logger.error(message)
             return
         logger.info(f"Successfully set leverage and margin type for {symbol}.")
@@ -251,15 +242,12 @@ def handle_trade_signal(data):
     entry_order = futures_client.create_entry_order(symbol, signal_type, entry_price, quantity)
 
     if not entry_order or 'orderId' not in entry_order:
-        message = f"Failed to place entry order for {symbol} ({signal_type})." # Log message
+        message = f"Failed to place entry order for {symbol} ({signal_type})."
         logger.error(message)
-        # Bildirim, telegram_notifier geçirilirse ve kullanılırsa create_entry_order veya temel yöntemler tarafından yönetilir
         return
 
     logger.info(f"Entry order for {symbol} placed successfully: {entry_order}")
 
-    # TODO: Daha kesin P&L ve TSL hesaplamaları için entry_order'ın gerçek dolum fiyatını sorgulayın.
-    # Bu, doğruluk için KRİTİK bir TODO'dur. Şimdilik webhook'tan gelen giriş fiyatı kullanılıyor.
     actual_filled_entry_price = entry_price
 
     sl_order = futures_client.create_stop_loss_order(symbol, signal_type, actual_filled_entry_price, quantity)
@@ -286,22 +274,19 @@ def handle_trade_signal(data):
         'entry_price': actual_filled_entry_price,
         'quantity': quantity,
         'signal_type': signal_type,
-        'status': "open", # Başlangıç durumu
+        'status': "open",
         'trailing_active': False,
         'highest_price_since_trailing_activation': actual_filled_entry_price if signal_type == 'long' else 0.0,
         'lowest_price_since_trailing_activation': actual_filled_entry_price if signal_type == 'short' else float('inf'),
         'timestamp': time.time()
     }
-    if db_handler.set_trade(symbol, trade_details): # redis_client -> db_handler
-        logger.info(f"{symbol} işlem detayları Veritabanına kaydedildi. Detaylar: {trade_details}") # Redis -> Veritabanına
+    if db_handler.set_trade(symbol, trade_details):
+        logger.info(f"{symbol} işlem detayları Veritabanına kaydedildi. Detaylar: {trade_details}")
     else:
-        # Bu kritik bir sorundur, çünkü işlem açık ancak izlenmiyor.
-        error_message = f"KRİTİK: Emirler verildikten sonra {symbol} işlemi Veritabanına kaydedilemedi. Manuel izleme gerekli." # Redis -> Veritabanına
+        error_message = f"KRİTİK: Emirler verildikten sonra {symbol} işlemi Veritabanına kaydedilemedi. Manuel izleme gerekli."
         logger.error(error_message)
-        if telegram_notifier.enabled: # Kullanmadan önce bildirimcinin etkin olup olmadığını kontrol et
-            telegram_notifier.notify_error("Veritabanı Kayıt Hatası", error_message) # Redis -> Veritabanı
-        # Bunun nasıl ele alınacağını düşünün: emirleri iptal etmeye çalışın? Şimdilik, günlük tutun ve bildirin.
-
+        if telegram_notifier.enabled:
+            telegram_notifier.notify_error("Veritabanı Kayıt Hatası", error_message)
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -347,37 +332,9 @@ def webhook():
              telegram_notifier.notify_error("Webhook İşleme Hatası", str(e))
         return jsonify({"status": "error", "message": "Internal server error"}), 500
 
-def trailing_stop_loop():
-    global futures_client, telegram_notifier, db_handler # redis_client -> db_handler
-    logger.info("Trailing stop manager thread started.")
-    while True:
-        try:
-            # Argümanları manage_trailing_stops'a geçir
-            manage_trailing_stops(futures_client, telegram_notifier, db_handler) # redis_client -> db_handler
-        except Exception as e:
-            logger.error(f"Exception in trailing_stop_loop: {e}", exc_info=True)
-            if telegram_notifier and telegram_notifier.enabled:
-                 telegram_notifier.notify_error("TSL Döngü İstisnası", str(e))
-
-        sleep_duration = config.TRAILING_STOP_CHECK_INTERVAL_SECONDS
-        if sleep_duration < 10:
-            logger.warning(f"TRAILING_STOP_CHECK_INTERVAL_SECONDS ({sleep_duration}s) is very low. Setting to 10s minimum for safety.")
-            sleep_duration = 10
-        time.sleep(sleep_duration)
-
 if __name__ == "__main__":
-    initialize_services() # Global istemcileri başlat
-
-    if config.TRAILING_STOP:
-        # TSL thread'i yalnızca kritik servisler başlatıldıysa VE başlangıç senkronizasyonu başarılıysa başlat
-        if futures_client and telegram_notifier and db_handler and db_handler.conn and synchronization_successful:
-            ts_thread = threading.Thread(target=trailing_stop_loop, daemon=True)
-            ts_thread.start()
-            logger.info(f"Takip Eden Zarar Durdurma (TSL) yöneticisi iş parçacığı başlatıldı (kontrol aralığı: {config.TRAILING_STOP_CHECK_INTERVAL_SECONDS}s).")
-        else:
-            logger.error("Takip Eden Zarar Durdurma (TSL) Yöneticisi başlatılamıyor: Kritik servisler başlatılamadı VEYA başlangıç senkronizasyonu başarısız oldu.")
-
-    # Yerel geliştirme sunucusunu yalnızca doğrudan `python main.py` ile çalıştırıldığında başlat
-    # Gunicorn bu bloğu çalıştırmayacak, bunun yerine 'app' Flask nesnesini kullanacaktır.
+    # initialize_services() çağrısı zaten modül seviyesinde yapılıyor.
+    # TSL thread başlatma da modül seviyesinde yapılıyor.
+    # Bu blok sadece `python main.py` ile doğrudan çalıştırıldığında Flask geliştirme sunucusunu başlatmak içindir.
     logger.info("Flask geliştirme sunucusu başlatılıyor (yalnızca yerel test için)...")
     app.run(host='0.0.0.0', port=config.PORT, debug=False) # config.PORT kullanıldı
