@@ -370,7 +370,7 @@ if __name__ == "__main__":
 
     if config.TRAILING_STOP:
         # TSL thread'i yalnızca kritik servisler başlatıldıysa VE başlangıç senkronizasyonu başarılıysa başlat
-        if futures_client and telegram_notifier and redis_client and redis_client.is_connected() and synchronization_successful:
+        if futures_client and telegram_notifier and db_handler and db_handler.conn and synchronization_successful:
             ts_thread = threading.Thread(target=trailing_stop_loop, daemon=True)
             ts_thread.start()
             logger.info(f"Takip Eden Zarar Durdurma (TSL) yöneticisi iş parçacığı başlatıldı (kontrol aralığı: {config.TRAILING_STOP_CHECK_INTERVAL_SECONDS}s).")
