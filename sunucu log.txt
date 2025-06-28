@@ -1,0 +1,923 @@
+Traceback (most recent call last):
+  File "/home/erebustr/app/passenger_wsgi.py", line 8, in <module>
+    wsgi = imp.load_source('wsgi', 'main.py')
+  File "/opt/alt/python310/lib64/python3.10/imp.py", line 172, in load_source
+    module = _load(spec)
+  File "<frozen importlib._bootstrap>", line 719, in _load
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 879, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1017, in get_code
+  File "<frozen importlib._bootstrap_external>", line 947, in source_to_code
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "main.py", line 8
+    def passenger_wsgi.py(environ, start_response):
+                      ^
+SyntaxError: invalid syntax
+Traceback (most recent call last):
+  File "/home/erebustr/app/passenger_wsgi.py", line 8, in <module>
+    wsgi = imp.load_source('wsgi', 'main.py')
+  File "/opt/alt/python310/lib64/python3.10/imp.py", line 172, in load_source
+    module = _load(spec)
+  File "<frozen importlib._bootstrap>", line 719, in _load
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 879, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1017, in get_code
+  File "<frozen importlib._bootstrap_external>", line 947, in source_to_code
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "main.py", line 8
+    def passenger_wsgi.py(environ, start_response):
+                      ^
+SyntaxError: invalid syntax
+Traceback (most recent call last):
+  File "/home/erebustr/app/passenger_wsgi.py", line 8, in <module>
+    wsgi = imp.load_source('wsgi', 'main.py')
+  File "/opt/alt/python310/lib64/python3.10/imp.py", line 172, in load_source
+    module = _load(spec)
+  File "<frozen importlib._bootstrap>", line 719, in _load
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 879, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1017, in get_code
+  File "<frozen importlib._bootstrap_external>", line 947, in source_to_code
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "main.py", line 8
+    def passenger_wsgi.py(environ, start_response):
+                      ^
+SyntaxError: invalid syntax
+2025-06-28 02:30:10,107 - INFO - Initializing services...
+2025-06-28 02:30:10,107 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 02:30:10,442 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 02:30:11,297 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+Traceback (most recent call last):
+  File "/home/erebustr/app/passenger_wsgi.py", line 8, in <module>
+    wsgi = imp.load_source('wsgi', 'main.py')
+  File "/opt/alt/python310/lib64/python3.10/imp.py", line 172, in load_source
+    module = _load(spec)
+  File "<frozen importlib._bootstrap>", line 719, in _load
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "main.py", line 117, in <module>
+    initialize_services() # Servis ba\u015flatmay\u0131 buraya ta\u015f\u0131
+  File "main.py", line 30, in initialize_services
+    futures_client = BinanceFuturesClient(config.BINANCE_API_KEY, config.BINANCE_API_SECRET, telegram_notifier)
+  File "/home/erebustr/app/binance_client.py", line 24, in __init__
+    self.exchange_info = self.client.futures_exchange_info()
+  File "/home/erebustr/virtualenv/app/3.10/lib/python3.10/site-packages/binance/client.py", line 7204, in futures_exchange_info
+    return self._request_futures_api("get", "exchangeInfo")
+  File "/home/erebustr/virtualenv/app/3.10/lib/python3.10/site-packages/binance/client.py", line 126, in _request_futures_api
+    return self._request(method, uri, signed, force_params, **kwargs)
+  File "/home/erebustr/virtualenv/app/3.10/lib/python3.10/site-packages/binance/client.py", line 89, in _request
+    return self._handle_response(self.response)
+  File "/home/erebustr/virtualenv/app/3.10/lib/python3.10/site-packages/binance/client.py", line 98, in _handle_response
+    raise BinanceAPIException(response, response.status_code, response.text)
+binance.exceptions.BinanceAPIException: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 02:31:37,538 - INFO - Initializing services...
+2025-06-28 02:31:37,538 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 02:31:37,833 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 02:31:38,705 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 02:31:38.998318 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3278233] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3278233] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 02:35:59,210 - INFO - Initializing services...
+2025-06-28 02:35:59,211 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 02:35:59,560 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 02:36:00,461 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 02:36:00.750908 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3281104] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 02:36:44,373 - INFO - Initializing services...
+2025-06-28 02:36:44,373 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 02:36:44,668 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 02:36:45,475 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 02:36:45.747412 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3281468] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3281104] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3281970] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3281104] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3281104] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3281970] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3281468] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 02:42:23,444 - INFO - Initializing services...
+2025-06-28 02:42:23,445 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 02:42:23,801 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 02:42:24,647 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 02:42:24.920367 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3285069] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 02:48:08,012 - INFO - Initializing services...
+2025-06-28 02:48:08,012 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 02:48:08,302 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 02:48:09,201 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 02:48:09.489863 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3288504] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 03:01:13,390 - INFO - Initializing services...
+2025-06-28 03:01:13,390 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 03:01:13,734 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 03:01:13,821 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML><HEAD><META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<TITLE>ERROR: The request could not be satisfied</TITLE>
+</HEAD><BODY>
+<H1>403 ERROR</H1>
+<H2>The request could not be satisfied.</H2>
+<HR noshade size="1px">
+Request blocked.
+We can't connect to the server for this app or website at this time. There might be too much traffic or a configuration error. Try again later, or contact the app or website owner.
+<BR clear="all">
+If you provide content to customers through CloudFront, you can find steps to troubleshoot and help prevent this error by reviewing the CloudFront documentation.
+<BR clear="all">
+<HR noshade size="1px">
+<PRE>
+Generated by cloudfront (CloudFront)
+Request ID: sFUwI_tpkvRlD-a2sAf5AiK3HYPJCfSui4snckJHZBPa_ujfm6Qzaw==
+</PRE>
+<ADDRESS>
+</ADDRESS>
+</BODY></HTML>
+2025-06-28 03:01:13.836090 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3311295] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 03:02:07,047 - INFO - Initializing services...
+2025-06-28 03:02:07,047 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 03:02:07,351 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 03:02:07,391 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML><HEAD><META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<TITLE>ERROR: The request could not be satisfied</TITLE>
+</HEAD><BODY>
+<H1>403 ERROR</H1>
+<H2>The request could not be satisfied.</H2>
+<HR noshade size="1px">
+Request blocked.
+We can't connect to the server for this app or website at this time. There might be too much traffic or a configuration error. Try again later, or contact the app or website owner.
+<BR clear="all">
+If you provide content to customers through CloudFront, you can find steps to troubleshoot and help prevent this error by reviewing the CloudFront documentation.
+<BR clear="all">
+<HR noshade size="1px">
+<PRE>
+Generated by cloudfront (CloudFront)
+Request ID: B_9aS0B2J-GKVeXoSYGiU5fVta0J1B8SXcx9N0vDQ2NxLECxqlHjHQ==
+</PRE>
+<ADDRESS>
+</ADDRESS>
+</BODY></HTML>
+2025-06-28 03:02:07.406993 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3311696] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3311696] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3311295] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3317958] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 03:14:45,429 - INFO - Initializing services...
+2025-06-28 03:14:45,430 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 03:14:45,776 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 03:14:46,625 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 03:14:46.895365 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3319476] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3317958] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3320084] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3320084] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3319476] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3319476] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3319476] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3323887] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3319476] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3323887] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3319476] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 03:41:08,812 - INFO - Initializing services...
+2025-06-28 03:41:08,812 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 03:41:09,189 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 03:41:09,271 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML><HEAD><META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<TITLE>ERROR: The request could not be satisfied</TITLE>
+</HEAD><BODY>
+<H1>403 ERROR</H1>
+<H2>The request could not be satisfied.</H2>
+<HR noshade size="1px">
+Request blocked.
+We can't connect to the server for this app or website at this time. There might be too much traffic or a configuration error. Try again later, or contact the app or website owner.
+<BR clear="all">
+If you provide content to customers through CloudFront, you can find steps to troubleshoot and help prevent this error by reviewing the CloudFront documentation.
+<BR clear="all">
+<HR noshade size="1px">
+<PRE>
+Generated by cloudfront (CloudFront)
+Request ID: ryd2XbNN9SrET8YSW0aDJAXF1BQrmk8osMFTLNc-q7KNFtTMJoMLPg==
+</PRE>
+<ADDRESS>
+</ADDRESS>
+</BODY></HTML>
+2025-06-28 03:41:09.288945 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3334590] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 03:41:44,899 - INFO - Initializing services...
+2025-06-28 03:41:44,899 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 03:41:45,194 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 03:41:45,234 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML><HEAD><META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<TITLE>ERROR: The request could not be satisfied</TITLE>
+</HEAD><BODY>
+<H1>403 ERROR</H1>
+<H2>The request could not be satisfied.</H2>
+<HR noshade size="1px">
+Request blocked.
+We can't connect to the server for this app or website at this time. There might be too much traffic or a configuration error. Try again later, or contact the app or website owner.
+<BR clear="all">
+If you provide content to customers through CloudFront, you can find steps to troubleshoot and help prevent this error by reviewing the CloudFront documentation.
+<BR clear="all">
+<HR noshade size="1px">
+<PRE>
+Generated by cloudfront (CloudFront)
+Request ID: fpWE_BjQHNw814FZI5LTCFuXlo5TnzdWMzppbEqlqtcUbR-6YbrDSA==
+</PRE>
+<ADDRESS>
+</ADDRESS>
+</BODY></HTML>
+2025-06-28 03:41:45.251474 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3334924] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3334590] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3334590] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3334924] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3339816] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 04:02:54,527 - INFO - Initializing services...
+2025-06-28 04:02:54,528 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 04:02:54,873 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 04:02:55,726 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 04:02:55.998845 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3346686] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 04:03:14,062 - INFO - Initializing services...
+2025-06-28 04:03:14,062 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 04:03:14,356 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 04:03:15,189 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 04:03:15.468311 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3346857] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3346857] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3346686] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 04:19:29,351 - INFO - Initializing services...
+2025-06-28 04:19:29,352 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 04:19:29,690 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 04:19:30,531 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 04:19:30.799871 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3355916] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 04:21:46,050 - INFO - Initializing services...
+2025-06-28 04:21:46,050 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 04:21:46,342 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 04:21:47,152 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 04:21:47.425753 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3357098] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3355916] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3357098] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 04:26:40,509 - INFO - Initializing services...
+2025-06-28 04:26:40,509 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 04:26:40,852 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 04:26:42,070 - INFO - Initializing services...
+2025-06-28 04:26:42,070 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 04:26:42,362 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 04:26:43,176 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 04:26:43,359 - INFO - Initializing services...
+2025-06-28 04:26:43,360 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 04:26:43.451366 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3359756] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 04:26:43,652 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 04:26:44,456 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 04:26:44.725837 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3359762] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3359762] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3359756] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3359756] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 04:38:59,576 - INFO - Initializing services...
+2025-06-28 04:38:59,576 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 04:38:59,915 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 04:39:00,771 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 04:39:01.045239 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 04:42:39,160 - INFO - Initializing services...
+2025-06-28 04:42:39,160 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 04:42:39,456 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 04:42:40,315 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 04:42:40.592433 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3369088] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3369088] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3369088] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3369467] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3369467] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3370721] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3370721] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3370721] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3370721] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3370721] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3370721] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3370721] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3370721] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3370721] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3370721] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3370721] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3370721] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3366642] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 04:57:30,745 - INFO - Initializing services...
+2025-06-28 04:57:30,745 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 04:57:31,092 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 04:57:31,174 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML><HEAD><META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<TITLE>ERROR: The request could not be satisfied</TITLE>
+</HEAD><BODY>
+<H1>403 ERROR</H1>
+<H2>The request could not be satisfied.</H2>
+<HR noshade size="1px">
+Request blocked.
+We can't connect to the server for this app or website at this time. There might be too much traffic or a configuration error. Try again later, or contact the app or website owner.
+<BR clear="all">
+If you provide content to customers through CloudFront, you can find steps to troubleshoot and help prevent this error by reviewing the CloudFront documentation.
+<BR clear="all">
+<HR noshade size="1px">
+<PRE>
+Generated by cloudfront (CloudFront)
+Request ID: MG36DKHee7Bks91yfDE66j-8JQoy-nLgszSCa1z5vqNq0wjYCQdXaw==
+</PRE>
+<ADDRESS>
+</ADDRESS>
+</BODY></HTML>
+2025-06-28 04:57:31.189362 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 04:58:58,315 - INFO - Initializing services...
+2025-06-28 04:58:58,315 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 04:58:58,611 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 04:58:58,650 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML><HEAD><META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<TITLE>ERROR: The request could not be satisfied</TITLE>
+</HEAD><BODY>
+<H1>403 ERROR</H1>
+<H2>The request could not be satisfied.</H2>
+<HR noshade size="1px">
+Request blocked.
+We can't connect to the server for this app or website at this time. There might be too much traffic or a configuration error. Try again later, or contact the app or website owner.
+<BR clear="all">
+If you provide content to customers through CloudFront, you can find steps to troubleshoot and help prevent this error by reviewing the CloudFront documentation.
+<BR clear="all">
+<HR noshade size="1px">
+<PRE>
+Generated by cloudfront (CloudFront)
+Request ID: b3QKVFbYlTEXMuR6ZbCPALz10TgQi5a4Tr3L7MgeY6hjpY_apSkM0w==
+</PRE>
+<ADDRESS>
+</ADDRESS>
+</BODY></HTML>
+2025-06-28 04:58:58.667322 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3378008] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379265] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379265] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379265] [ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379265] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379265] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379265] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379265] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379265] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379265] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3377338] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3379266] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3378008] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 05:12:18,418 - INFO - Initializing services...
+2025-06-28 05:12:18,418 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 05:12:18,759 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 05:12:18,843 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML><HEAD><META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<TITLE>ERROR: The request could not be satisfied</TITLE>
+</HEAD><BODY>
+<H1>403 ERROR</H1>
+<H2>The request could not be satisfied.</H2>
+<HR noshade size="1px">
+Request blocked.
+We can't connect to the server for this app or website at this time. There might be too much traffic or a configuration error. Try again later, or contact the app or website owner.
+<BR clear="all">
+If you provide content to customers through CloudFront, you can find steps to troubleshoot and help prevent this error by reviewing the CloudFront documentation.
+<BR clear="all">
+<HR noshade size="1px">
+<PRE>
+Generated by cloudfront (CloudFront)
+Request ID: 4uadi6_xT76ddvKbQaHmAVi8Oq1hEW1YEFxWVhVK0QZ6SIeDhqL9iQ==
+</PRE>
+<ADDRESS>
+</ADDRESS>
+</BODY></HTML>
+2025-06-28 05:12:18.859165 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386372] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+2025-06-28 05:17:37,341 - INFO - Initializing services...
+2025-06-28 05:17:37,342 - INFO - Telegram Notifier initialized for chat ID: 1880892694
+2025-06-28 05:17:37,683 - INFO - Binance Futures \u0130stemcisi ba\u015flat\u0131ld\u0131.
+2025-06-28 05:17:38,543 - ERROR - Error getting server time: APIError(code=0): Invalid JSON error message from Binance: <html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+</body>
+</html>
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+<!-- a padding to disable MSIE and Chrome friendly error page -->
+
+2025-06-28 05:17:38.816954 [ERROR] [UID:1147][0] wsgiHandler getApp [application] failed, pApp=(nil).
+[ERROR] [UID:1147][3389412] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
+[ERROR] [UID:1147][3386474] wsgiHandler getApp [application] failed, pApp=(nil).
+AttributeError: module 'passenger_wsgi' has no attribute 'application'
