@@ -1,7 +1,7 @@
 # telegram_bot.py
 import config
 import logging
-import httpx # Using httpx for simple synchronous POST requests
+import httpx # Basit senkron POST istekleri için httpx kullanılıyor
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +26,12 @@ class TelegramNotifier:
         payload = {
             'chat_id': self.chat_id,
             'text': text,
-            'parse_mode': parse_mode  # Options: "Markdown" or "HTML"
+            'parse_mode': parse_mode  # Seçenekler: "Markdown" veya "HTML"
         }
         try:
             with httpx.Client() as client:
-                response = client.post(url, json=payload, timeout=10) # telegram API expects JSON payload
-            response.raise_for_status()  # Raises an exception for 4XX/5XX responses
+                response = client.post(url, json=payload, timeout=10) # Telegram API JSON yükü bekler
+            response.raise_for_status()  # 4XX/5XX yanıtları için bir istisna oluşturur
             logger.info(f"Telegram message sent successfully. Response: {response.json()}")
             return response.json()
         except httpx.RequestError as e:
@@ -45,54 +45,109 @@ class TelegramNotifier:
     def notify_trade_entry(self, symbol, direction, entry_price, quantity, stop_loss_price, notes=""):
         direction_emoji = "🟢" if direction.lower() == "long" else "🔴"
         message = (
-            f"{direction_emoji} **New Trade Entry** {direction_emoji}\n\n"
-            f"**Symbol:** `{symbol}`\n"
-            f"**Direction:** `{direction.upper()}`\n"
-            f"**Entry Price:** `{entry_price:.4f}`\n" # Adjust precision as needed
-            f"**Quantity:** `{quantity}`\n"
-            f"**Stop Loss:** `{stop_loss_price:.4f}`\n"
+            f"{direction_emoji} **Yeni İşlem Girişi** {direction_emoji}\n\n"
+            f"**Sembol:** `{symbol}`\n"
+            f"**Yön:** `{direction.upper()}`\n"
+            f"**Giriş Fiyatı:** `{entry_price:.4f}`\n" # Hassasiyeti gerektiği gibi ayarlayın
+            f"**Miktar:** `{quantity}`\n"
+            f"**Zarar Durdurma:** `{stop_loss_price:.4f}`\n"
         )
         if notes:
-            message += f"\n**Notes:** {notes}"
+            message += f"\n**Notlar:** {notes}"
         return self.send_message(message)
 
     def notify_trade_close(self, symbol, direction, exit_price, entry_price, quantity, pnl, notes=""):
         pnl_emoji = "✅" if pnl >= 0 else "❌"
         message = (
-            f"{pnl_emoji} **Trade Closed** {pnl_emoji}\n\n"
-            f"**Symbol:** `{symbol}`\n"
-            f"**Direction:** `{direction.upper()}`\n"
-            f"**Entry Price:** `{entry_price:.4f}`\n"
-            f"**Exit Price:** `{exit_price:.4f}`\n"
-            f"**Quantity:** `{quantity}`\n"
-            f"**P&L (USDT):** `{pnl:.2f}`\n" # Assuming PNL is in USDT
+            f"{pnl_emoji} **İşlem Kapatıldı** {pnl_emoji}\n\n"
+            f"**Sembol:** `{symbol}`\n"
+            f"**Yön:** `{direction.upper()}`\n"
+            f"**Giriş Fiyatı:** `{entry_price:.4f}`\n"
+            f"**Çıkış Fiyatı:** `{exit_price:.4f}`\n"
+            f"**Miktar:** `{quantity}`\n"
+            f"**K&Z (USDT):** `{pnl:.2f}`\n" # PNL'nin USDT cinsinden olduğu varsayılıyor
         )
         if notes:
-            message += f"\n**Notes:** {notes}"
+            message += f"\n**Notlar:** {notes}"
+        return self.send_message(message)
+
+    def notify_trade_reverse_closure(self, symbol, original_direction, exit_price, quantity, notes=""):
+        # original_direction zaten 'LONG' veya 'SHORT' (İngilizce) olmalı (main.py'den geliyor)
+        # direction_emoji = "🟢" if original_direction.upper() == "LONG" else "🔴"
+        # Veya daha basitçe, kapanış her zaman bir "dikkat" veya "nötr" emoji olabilir, çünkü bu stratejik bir kapanıştır.
+        closure_emoji = "🔄" # Döndürme/değiştirme emojisi
+
+        message = (
+            f"{closure_emoji} **Pozisyon Ters Sinyal Nedeniyle Kapatıldı** {closure_emoji}\n\n"
+            f"**Sembol:** `{symbol}`\n"
+            f"**Orijinal Yön:** `{original_direction.upper()}`\n" # main.py'den gelen İngilizce yönü kullanır
+            f"**Çıkış Fiyatı:** `{exit_price:.4f}`\n"
+            f"**Miktar:** `{quantity}`\n"
+        )
+        if notes:
+            message += f"\n**Notlar:** {notes}"
         return self.send_message(message)
 
     def notify_error(self, error_message, details=""):
         message = (
-            f"⚠️ **Bot Error** ⚠️\n\n"
-            f"**Message:** `{error_message}`\n"
+            f"⚠️ **Bot Hatası** ⚠️\n\n"
+            f"**Mesaj:** `{error_message}`\n"
         )
         if details:
-            message += f"**Details:** `{details}`"
+            message += f"**Detaylar:** `{details}`"
         return self.send_message(message)
 
     def notify_balance(self, balance, open_positions_count, total_pnl_session=None, notes=""):
         message = (
-            f"💰 **Bot Status & Balance** 💰\n\n"
-            f"**Current USDT Balance:** `{balance:.2f}`\n"
-            f"**Open Positions:** `{open_positions_count}`\n"
+            f"💰 **Bot Durumu & Bakiye** 💰\n\n"
+            f"**Mevcut USDT Bakiyesi:** `{balance:.2f}`\n"
+            f"**Açık Pozisyonlar:** `{open_positions_count}`\n"
         )
         if total_pnl_session is not None:
-             message += f"**Session P&L:** `{total_pnl_session:.2f}` USDT\n"
+             message += f"**Oturum K&Z:** `{total_pnl_session:.2f}` USDT\n"
         if notes:
-            message += f"\n**Notes:** {notes}"
+            message += f"\n**Notlar:** {notes}"
         return self.send_message(message)
 
-# Example usage (for testing this module directly)
+    def notify_unmanaged_position(self, symbol, position_amt, entry_price, notes=""):
+        """
+        Binance'te bulunan ancak Redis'te bot tarafından takip edilmeyen bir pozisyon hakkında bilgilendirir.
+        """
+        alert_emoji = "⚠️"
+        direction = "UZUN (LONG)" if position_amt > 0 else "KISA (SHORT)" if position_amt < 0 else "BİLİNMİYOR"
+
+        message = (
+            f"{alert_emoji} **Yönetilmeyen Pozisyon Tespit Edildi** {alert_emoji}\n\n"
+            f"**Sembol:** `{symbol}`\n"
+            f"**Miktar:** `{position_amt}`\n"
+            f"**Binance Giriş Fiyatı:** `{entry_price:.4f}`\n"
+            f"**Durum:** Bu pozisyon botun aktif takibinde DEĞİL.\n"
+        )
+        if notes:
+            message += f"\n**Notlar/Öneri:** {notes}"
+        else:
+            message += f"\n**Öneri:** Lütfen bu pozisyonu Binance arayüzünden manuel olarak inceleyin ve yönetin."
+
+        return self.send_message(message)
+
+    def notify_stale_trade_removed(self, symbol, notes=""):
+        """
+        Redis'te takip edilen ancak artık Binance'te bulunmayan eski bir işlem kaydının kaldırıldığını bildirir.
+        """
+        info_emoji = "ℹ️"
+        message = (
+            f"{info_emoji} **Eski İşlem Kaydı Temizlendi** {info_emoji}\n\n"
+            f"**Sembol:** `{symbol}`\n"
+            f"**Durum:** Bu sembol için Redis'te bulunan işlem kaydı, pozisyonun Binance'te bulunmaması nedeniyle kaldırıldı.\n"
+        )
+        if notes:
+            message += f"\n**Detaylar:** {notes}"
+        else:
+            message += f"\n**Detaylar:** Muhtemelen pozisyon bot kapalıyken manuel olarak veya bir ZD/TSL ile kapatıldı."
+
+        return self.send_message(message)
+
+# Örnek kullanım (bu modülü doğrudan test etmek için)
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger.info("Testing TelegramNotifier...")
@@ -103,18 +158,27 @@ if __name__ == '__main__':
         notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID)
 
         logger.info("Sending test entry notification...")
-        notifier.notify_trade_entry("BTCUSDT", "long", 60000.0, 0.001, 58000.0, notes="Test entry from bot dev")
+        notifier.notify_trade_entry("BTCUSDT", "long", 60000.0, 0.001, 58000.0, notes="Bot geliştiricisinden test girişi")
 
         logger.info("Sending test close notification...")
-        notifier.notify_trade_close("ETHUSDT", "short", 3000.0, 3100.0, 0.05, -5.0, notes="Test close from bot dev")
+        notifier.notify_trade_close("ETHUSDT", "short", 3000.0, 3100.0, 0.05, -5.0, notes="Bot geliştiricisinden test kapanışı")
+
+        logger.info("Sending test reverse closure notification...")
+        notifier.notify_trade_reverse_closure("ADAUSDT", "long", 1.5000, 100, notes="Ters sinyal (short) nedeniyle kapatıldı.")
 
         logger.info("Sending test error notification...")
-        notifier.notify_error("Test error message", details="Simulated error during testing.")
+        notifier.notify_error("Test hata mesajı", details="Test sırasında simüle edilmiş hata.")
 
         logger.info("Sending test balance notification...")
-        notifier.notify_balance(10000.50, 2, 150.75, notes="End of day test report.")
+        notifier.notify_balance(10000.50, 2, 150.75, notes="Gün sonu test raporu.")
+
+        logger.info("Sending test unmanaged position notification...")
+        notifier.notify_unmanaged_position("XRPUSDT", 100.5, 0.5234, notes="Lütfen manuel olarak kontrol edin.")
+
+        logger.info("Sending test stale trade removed notification...")
+        notifier.notify_stale_trade_removed("DOTUSDT", notes="Pozisyon Binance'te bulunamadı.")
 
         logger.info("Sending a simple message...")
-        notifier.send_message("Hello from the bot! This is a *Markdown* test. And this is `code`.")
+        notifier.send_message("Bottan merhaba! Bu bir *Markdown* testidir. Ve bu `kod`.")
 
     logger.info("TelegramNotifier testing finished.")

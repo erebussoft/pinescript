@@ -1,37 +1,41 @@
 import config
 import logging
 import time
-# Removed direct imports of BinanceFuturesClient and TelegramNotifier to avoid circular dependencies
-# These will be passed as arguments to manage_trailing_stops function.
-from binance.enums import * # For FUTURE_ORDER_TYPE_STOP_MARKET, SIDE_SELL, SIDE_BUY
+# BinanceFuturesClient ve TelegramNotifier doğrudan içe aktarımları döngüsel bağımlılıkları önlemek için kaldırıldı
+# Bunlar manage_trailing_stops fonksiyonuna argüman olarak geçirilecektir.
+from binance.enums import * # FUTURE_ORDER_TYPE_STOP_MARKET, SIDE_SELL, SIDE_BUY için
 from binance.exceptions import BinanceAPIException
-import copy # For safely iterating over active_bot_trades
+# import copy # Redis'ten çektiğimiz için kaldırıldı
 
 logger = logging.getLogger(__name__)
 
-def manage_trailing_stops(futures_client, telegram_notifier, active_bot_trades, active_trades_lock=None):
-    # active_trades_lock is optional, for more complex scenarios.
-    # Python dict operations are largely atomic, but for multi-step read-modify-write, a lock is safer.
-    # For iterating and simple checks/deletions, copy.deepcopy or list(dict.items()) is often sufficient.
+def manage_trailing_stops(futures_client, telegram_notifier, db_handler): # redis_client -> db_handler
+    # Redis'in tek anahtarlar üzerindeki işlemleri genellikle atomik olduğundan active_trades_lock kaldırıldı.
 
     if not config.TRAILING_STOP or not futures_client:
         logger.debug("Trailing stop is disabled in config or futures_client not available.")
         return
 
-    logger.debug(f"Checking trailing stops for {len(active_bot_trades)} active trades...")
+    logger.debug("Veritabanından TSL yönetimi için aktif işlem verileri sorgulanıyor...") # Redis -> Veritabanından
 
-    # Use a deep copy of items for safe iteration if modifications occur
-    # Or iterate over keys and fetch/delete carefully.
-    # active_trades_copy = copy.deepcopy(active_bot_trades) # Needs import copy; deepcopy might be overkill if objects are simple.
+    if not db_handler or not db_handler.conn: # redis_client -> db_handler.conn
+        logger.error("Veritabanı işleyici mevcut değil veya bağlı değil. TSL döngüsü atlanıyor.") # Redis client -> Veritabanı işleyici
+        return
 
-    # Iterate over a list of symbol keys to allow modification of the dict
-    for symbol in list(active_bot_trades.keys()):
-        if symbol not in active_bot_trades: # Check if trade was removed by another part of the logic or previous iteration
-            continue
+    active_trades_map = db_handler.get_all_trades() # redis_client.get_all_trade_symbols() ve get_trade() yerine
+    if not active_trades_map:
+        logger.debug("Veritabanında yönetilecek aktif işlem bulunamadı.") # Redis -> Veritabanında
+        return
+    logger.info(f"Veritabanında {len(active_trades_map)} aktif işlem bulundu: {list(active_trades_map.keys())}") # Redis -> Veritabanında
 
-        trade_details = active_bot_trades[symbol]
+    for symbol, trade_details in list(active_trades_map.items()): # .items() kopyası üzerinde yineleme
+        # trade_details = db_handler.get_trade(symbol) # Bu artık gereksiz, döngü zaten veriyor
+        # if not trade_details: # Bu kontrol de gereksiz
+        #     logger.warning(f"Could not retrieve trade details for symbol {symbol} from DB, or it was deleted. Skipping.")
+        #     continue
 
         if trade_details.get('status') != "open":
+            logger.debug(f"Trade {symbol} is not open (status: {trade_details.get('status')}). Skipping TSL.")
             continue
 
         try:
@@ -41,13 +45,13 @@ def manage_trailing_stops(futures_client, telegram_notifier, active_bot_trades, 
             if not position_info or float(position_info.get('positionAmt', 0)) == 0:
                 logger.info(f"Position for {symbol} (Entry: {trade_details['entry_price']}) appears closed on Binance. Removing from active_bot_trades.")
 
-                # Attempt to get the last known mark price for exit price if available
+                # Mümkünse çıkış fiyatı için bilinen son gösterge fiyatını almaya çalışın
                 last_mark_price_str = position_info.get('markPrice', str(trade_details['entry_price'])) if position_info else str(trade_details['entry_price'])
 
                 try:
                     exit_price_estimate = float(last_mark_price_str)
                 except ValueError:
-                    exit_price_estimate = trade_details['entry_price'] # Fallback to entry if markPrice is invalid
+                    exit_price_estimate = trade_details['entry_price'] # markPrice geçersizse giriş fiyatına geri dön
 
                 unrealized_pnl_str = position_info.get('unRealizedProfit', '0') if position_info else '0'
                 try:
@@ -63,14 +67,10 @@ def manage_trailing_stops(futures_client, telegram_notifier, active_bot_trades, 
                     trade_details['entry_price'],
                     trade_details['quantity'],
                     closed_pnl_estimate,
-                    notes="Position appears closed on Binance (detected by TSL manager)."
+                    notes="Pozisyon Binance'te kapanmış görünüyor (TSL yöneticisi tarafından algılandı)."
                 )
-                # Safely delete the key
-                if active_trades_lock:
-                    with active_trades_lock:
-                        if symbol in active_bot_trades: del active_bot_trades[symbol]
-                else:
-                    if symbol in active_bot_trades: del active_bot_trades[symbol]
+                # Anahtarı güvenle sil
+                db_handler.delete_trade(symbol) # redis_client -> db_handler
                 continue
 
             current_price = float(position_info.get('markPrice', 0))
@@ -80,12 +80,12 @@ def manage_trailing_stops(futures_client, telegram_notifier, active_bot_trades, 
 
             entry_price = trade_details['entry_price']
             signal_type = trade_details['signal_type']
-            # Ensure these keys exist, provide defaults if not for safety
+            # Bu anahtarların mevcut olduğundan emin olun, güvenlik için yoksa varsayılanları sağlayın
             current_sl_price = trade_details.get('current_sl_price', 0.0)
             sl_order_id = trade_details.get('sl_order_id')
 
             pnl_ratio = 0
-            if entry_price > 0: # Avoid division by zero
+            if entry_price > 0: # Sıfıra bölmekten kaçının
                 if signal_type == 'long':
                     pnl_ratio = (current_price - entry_price) / entry_price
                 elif signal_type == 'short':
@@ -94,47 +94,58 @@ def manage_trailing_stops(futures_client, telegram_notifier, active_bot_trades, 
             if not trade_details.get('trailing_active', False) and config.TRAILING_ONLY_OFFSET_IS_REACHED:
                 if pnl_ratio > config.TRAILING_STOP_POSITIVE_OFFSET:
                     trade_details['trailing_active'] = True
+                    # direction_tr_tsl_act = "UZUN" if signal_type.lower() == "long" else "KISA" # For TSL message # Removed
                     if signal_type == 'long':
                         trade_details['highest_price_since_trailing_activation'] = current_price
                     elif signal_type == 'short':
                         trade_details['lowest_price_since_trailing_activation'] = current_price
-                    else: # Should not happen if signal_type is validated
-                        trade_details['highest_price_since_trailing_activation'] = current_price
-                        trade_details['lowest_price_since_trailing_activation'] = current_price
-
+                    else: # signal_type doğrulanmışsa olmamalıdır
+                        trade_details['highest_price_since_trailing_activation'] = current_price # Varsayılan, ancak biri veya diğeri olmalı
+                        trade_details['lowest_price_since_trailing_activation'] = current_price  # Varsayılan
 
                     logger.info(f"Trailing stop ACTIVATED for {symbol} at P&L ratio: {pnl_ratio:.4f}, Current Price: {current_price}")
-                    telegram_notifier.send_message(f"🟢 Trailing Stop Activated for {symbol}\nSymbol: {symbol}\nDirection: {signal_type.upper()}\nEntry: {entry_price:.4f}\nCurrent Price: {current_price:.4f}\nProfit: {pnl_ratio*100:.2f}%")
-
+                    if not db_handler.set_trade(symbol, trade_details): # redis_client -> db_handler
+                        logger.error(f"TSL aktivasyonu sonrası {symbol} için işlem detayları Veritabanında güncellenemedi.") # Redis -> Veritabanında
+                        # Veritabanındaki durum bu işlem için potansiyel olarak eski olduğundan bir sonraki sembole devam et.
+                        continue # Bu döngüde bu sembol için daha fazla işlem yapmayı atla
+                    telegram_notifier.send_message(f"🟢 Takip Eden Zarar Durdurma Aktifleşti ({symbol})\nSembol: {symbol}\nYön: {signal_type.upper()}\nGiriş: {entry_price:.4f}\nMevcut Fiyat: {current_price:.4f}\nKâr: {pnl_ratio*100:.2f}%")
 
             if trade_details.get('trailing_active', False):
                 new_potential_sl_price = None
                 if signal_type == 'long':
-                    # Initialize if key doesn't exist
-                    if 'highest_price_since_trailing_activation' not in trade_details:
-                        trade_details['highest_price_since_trailing_activation'] = current_price
-                    else:
-                        trade_details['highest_price_since_trailing_activation'] = max(current_price, trade_details['highest_price_since_trailing_activation'])
+                    # Anahtar yoksa başlat
+                    # Anahtar yoksa başlat veya güncelle
+                    previous_highest = trade_details.get('highest_price_since_trailing_activation', current_price)
+                    trade_details['highest_price_since_trailing_activation'] = max(current_price, previous_highest)
+
+                    # SL henüz hareket etmese bile, değiştiyse güncellenmiş en yüksek fiyatı kalıcı hale getir
+                    if trade_details['highest_price_since_trailing_activation'] != previous_highest:
+                        if not db_handler.set_trade(symbol, trade_details): # redis_client -> db_handler
+                            logger.warning(f"{symbol} için highest_price_since_trailing_activation Veritabanında güncellenemedi. Yeniden başlatılırsa TSL hesaplamaları eski veri kullanabilir.") # Redis -> Veritabanında
+                            # Burada devam etmiyoruz, çünkü mantığın geri kalanı bu döngü için bellek içi güncellemeyle devam edebilir
 
                     calculated_sl = trade_details['highest_price_since_trailing_activation'] * (1 - config.TRAILING_STOP_POSITIVE)
-                    if calculated_sl > current_sl_price and calculated_sl > entry_price :
+                    if calculated_sl > current_sl_price and calculated_sl > entry_price : # SL'nin girişin de üzerinde olduğundan emin olun
                         new_potential_sl_price = calculated_sl
 
                 elif signal_type == 'short':
-                    if 'lowest_price_since_trailing_activation' not in trade_details:
-                        trade_details['lowest_price_since_trailing_activation'] = current_price
-                    else:
-                        trade_details['lowest_price_since_trailing_activation'] = min(current_price, trade_details['lowest_price_since_trailing_activation'])
+                    previous_lowest = trade_details.get('lowest_price_since_trailing_activation', current_price)
+                    trade_details['lowest_price_since_trailing_activation'] = min(current_price, previous_lowest)
+
+                    # Değiştiyse güncellenmiş en düşük fiyatı kalıcı hale getir
+                    if trade_details['lowest_price_since_trailing_activation'] != previous_lowest:
+                        if not db_handler.set_trade(symbol, trade_details): # redis_client -> db_handler
+                             logger.warning(f"{symbol} için lowest_price_since_trailing_activation Veritabanında güncellenemedi. Yeniden başlatılırsa TSL hesaplamaları eski veri kullanabilir.") # Redis -> Veritabanında
 
                     calculated_sl = trade_details['lowest_price_since_trailing_activation'] * (1 + config.TRAILING_STOP_POSITIVE)
-                    if calculated_sl < current_sl_price and calculated_sl < entry_price:
+                    if calculated_sl < current_sl_price and calculated_sl < entry_price: # SL'nin girişin de altında olduğundan emin olun
                         new_potential_sl_price = calculated_sl
 
                 if new_potential_sl_price is not None and sl_order_id:
                     logger.info(f"Attempting to update SL for {symbol}. Old SL: {current_sl_price}, New Potential SL: {new_potential_sl_price}")
 
                     symbol_info_sl = futures_client.get_symbol_info(symbol)
-                    tick_size_sl = "1e-8" # Default to very small if not found
+                    tick_size_sl = "1e-8" # Bulunamazsa varsayılan olarak çok küçük bir değere ayarla
                     if symbol_info_sl:
                         price_filter = next((f for f in symbol_info_sl['filters'] if f['filterType'] == 'PRICE_FILTER'), None)
                         if price_filter: tick_size_sl = price_filter['tickSize']
@@ -146,7 +157,7 @@ def manage_trailing_stops(futures_client, telegram_notifier, active_bot_trades, 
                         logger.debug(f"New SL {adjusted_new_sl_price} for {symbol} is not significantly different from current SL {current_sl_price} (tick: {tick_size_sl}). Skipping update.")
                         continue
 
-                    # Ensure SL is not placed "through" the current price due to extreme volatility or large trail %
+                    # Aşırı oynaklık veya büyük izleme yüzdesi nedeniyle SL'nin mevcut fiyat "üzerinden" yerleştirilmediğinden emin olun
                     if signal_type == 'long' and adjusted_new_sl_price >= current_price:
                         logger.warning(f"Calculated new SL {adjusted_new_sl_price} for LONG {symbol} is at or above current price {current_price}. Skipping SL update to prevent immediate stop-out.")
                         continue
@@ -171,36 +182,26 @@ def manage_trailing_stops(futures_client, telegram_notifier, active_bot_trades, 
                             trade_details['sl_order_id'] = new_sl_order_direct['orderId']
                             trade_details['current_sl_price'] = adjusted_new_sl_price
                             logger.info(f"New TSL order for {symbol} placed. ID: {new_sl_order_direct['orderId']}, Price: {adjusted_new_sl_price}")
-                            telegram_notifier.send_message(f"⚙️ Trailing SL Updated for {symbol}\nSymbol: {symbol}\nNew SL Price: {adjusted_new_sl_price:.4f}")
+                            if not db_handler.set_trade(symbol, trade_details): # redis_client -> db_handler
+                                logger.error(f"KRİTİK: {symbol} işlemi yeni TSL emir ID {new_sl_order_direct['orderId']} ile Veritabanında güncellenemedi. Durum uyuşmazlığı olabilir.") # Redis -> Veritabanında
+                            telegram_notifier.send_message(f"⚙️ Takip Eden ZD Güncellendi ({symbol})\nSembol: {symbol}\nYeni ZD Fiyatı: {adjusted_new_sl_price:.4f}")
                         else:
                             logger.error(f"CRITICAL: Old SL for {symbol} cancelled but FAILED to place new TSL order at {adjusted_new_sl_price}. POSITION IS UNPROTECTED.")
-                            telegram_notifier.notify_error(f"CRITICAL TSL Error: {symbol}", f"Old SL cancelled, new TSL FAILED. POS UNPROTECTED. Attempted SL: {adjusted_new_sl_price:.4f}. Manual intervention required!")
-                            if symbol in active_bot_trades: # Remove from active management
-                                if active_trades_lock:
-                                    with active_trades_lock: del active_bot_trades[symbol]
-                                else:
-                                    del active_bot_trades[symbol]
+                            telegram_notifier.notify_error(f"KRİTİK TSL Hatası: {symbol}", f"Eski ZD iptal edildi, yeni TSL BAŞARISIZ. POZİSYON KORUMASIZ. Denenen ZD: {adjusted_new_sl_price:.4f}. Manuel müdahale gerekli!")
+                            db_handler.delete_trade(symbol) # Aktif yönetimden kaldır # redis_client -> db_handler
 
                     except BinanceAPIException as cancel_e:
                         logger.error(f"Failed to cancel old SL order {sl_order_id} for {symbol} during TSL update: {cancel_e}")
-                        if cancel_e.code == -2011: # Order already filled or cancelled
+                        if cancel_e.code == -2011: # Emir zaten doldurulmuş veya iptal edilmiş
                              logger.info(f"Old SL {sl_order_id} for {symbol} was already filled/cancelled. Removing from TSL management.")
-                             if symbol in active_bot_trades:
-                                 if active_trades_lock:
-                                     with active_trades_lock: del active_bot_trades[symbol]
-                                 else:
-                                     del active_bot_trades[symbol]
-                        # else, do not place new SL to avoid multiple SLs. Will retry next cycle.
+                             db_handler.delete_trade(symbol) # redis_client -> db_handler
+                        # aksi takdirde, birden fazla SL'den kaçınmak için yeni SL yerleştirmeyin. Bir sonraki döngüde yeniden denenecektir.
 
         except BinanceAPIException as e:
-            logger.error(f"Binance API Error managing TSL for {symbol}: {e}", exc_info=False) # Set exc_info=False for less verbose logs for common API errors
-            if e.code == -2011 and trade_details.get('sl_order_id'): # Unknown order sent. (e.g. SL already cancelled / filled)
+            logger.error(f"Binance API Error managing TSL for {symbol}: {e}", exc_info=False) # Yaygın API hataları için daha az ayrıntılı günlükler için exc_info=False olarak ayarlayın
+            if e.code == -2011 and trade_details.get('sl_order_id'): # Bilinmeyen emir gönderildi. (ör. SL zaten iptal edilmiş / doldurulmuş)
                 logger.warning(f"SL Order for {symbol} (ID: {trade_details['sl_order_id']}) likely filled or already cancelled. Removing from TSL management.")
-                if symbol in active_bot_trades:
-                    if active_trades_lock:
-                        with active_trades_lock: del active_bot_trades[symbol]
-                    else:
-                        del active_bot_trades[symbol]
-            # Consider more specific error handling or less frequent notifications for non-critical API errors here
+                db_handler.delete_trade(symbol) # redis_client -> db_handler
+            # Kritik olmayan API hataları için burada daha spesifik hata işleme veya daha az sık bildirimleri düşünün
         except Exception as e:
             logger.error(f"Generic Error managing TSL for {symbol}: {e}", exc_info=True)

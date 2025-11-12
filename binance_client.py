@@ -9,17 +9,17 @@ from decimal import Decimal, ROUND_DOWN, ROUND_UP
 
 logger = logging.getLogger(__name__)
 
-# Forward declaration for type hinting if Python < 3.9
+# Python < 3.9 için tür ipucu için ileriye dönük bildirim
 # from typing import TYPE_CHECKING
 # if TYPE_CHECKING:
 #     from telegram_bot import TelegramNotifier
 
 class BinanceFuturesClient:
-    def __init__(self, api_key, api_secret, telegram_notifier_instance): # Added telegram_notifier_instance
+    def __init__(self, api_key, api_secret, telegram_notifier_instance): # telegram_notifier_instance eklendi
         self.client = Client(api_key, api_secret)
-        self.telegram_notifier = telegram_notifier_instance # Store it
-        self.client.FUTURES_URL = 'https://fapi.binance.com' # Ensure we are using futures
-        logger.info("Binance Futures Client initialized.")
+        self.telegram_notifier = telegram_notifier_instance # Sakla
+        self.client.FUTURES_URL = 'https://fapi.binance.com' # Vadeli işlemleri kullandığımızdan emin olun
+        logger.info("Binance Futures İstemcisi başlatıldı.")
         self.server_time_offset = self._get_server_time_offset()
         self.exchange_info = self.client.futures_exchange_info()
 
@@ -27,49 +27,49 @@ class BinanceFuturesClient:
         try:
             logger.info(f"Setting leverage for {symbol} to {leverage}x")
             response = self.client.futures_change_leverage(symbol=symbol, leverage=leverage, timestamp=self._get_timestamp())
-            logger.info(f"Leverage set for {symbol}: {response}")
+            logger.info(f"{symbol} için kaldıraç ayarlandı: {response}")
             return True
         except BinanceAPIException as e:
-            logger.error(f"Binance API Exception setting leverage for {symbol} to {leverage}x: {e}")
-            # Example: e.code == -4048 (Leverage not changed) - might not be an error if already set
+            logger.error(f"{symbol} için kaldıraç {leverage}x olarak ayarlanırken Binance API İstisnası: {e}")
+            # Örnek: e.code == -4048 (Kaldıraç değiştirilmedi) - zaten ayarlıysa bir hata olmayabilir
             if e.code == -4048: # "Leverage not changed"
-                logger.info(f"Leverage for {symbol} already set to {leverage}x or no change needed.")
-                return True # Treat as success if it's already the desired leverage
-            # Add more specific error code handling if needed
-            # e.g. -4003: "Quantity is not valid" if leverage is too high for current position size/balance
-            # e.g. -4028: "Leverage {leverage} is not valid for {symbol}" if leverage is out of allowed range
-            self.telegram_notifier.notify_error(f"Leverage Error: {symbol}", f"Failed to set leverage to {leverage}x. Code: {e.code}, Msg: {e.message}")
+                logger.info(f"{symbol} için kaldıraç zaten {leverage}x olarak ayarlanmış veya değişiklik gerekmiyor.")
+                return True # Zaten istenen kaldıraçsa başarılı olarak kabul et
+            # Gerekirse daha spesifik hata kodu yönetimi ekleyin
+            # ör. -4003: Mevcut pozisyon büyüklüğü/bakiye için kaldıraç çok yüksekse "Miktar geçerli değil"
+            # ör. -4028: Kaldıraç izin verilen aralığın dışındaysa "{symbol} için {leverage} kaldıracı geçerli değil"
+            self.telegram_notifier.notify_error(f"Kaldıraç Hatası: {symbol}", f"Kaldıraç {leverage}x olarak ayarlanamadı. Kod: {e.code}, Mesaj: {e.message}")
             return False
         except Exception as e:
             logger.error(f"Generic error setting leverage for {symbol}: {e}")
-            self.telegram_notifier.notify_error(f"Leverage Error: {symbol}", f"Generic error setting leverage to {leverage}x.")
+            self.telegram_notifier.notify_error(f"Kaldıraç Hatası: {symbol}", f"Kaldıraç {leverage}x olarak ayarlanırken genel hata.")
             return False
 
     def set_margin_type(self, symbol, margin_type):
-        # margin_type should be "ISOLATED" or "CROSSED"
+        # margin_type "ISOLATED" veya "CROSSED" olmalıdır
         try:
-            logger.info(f"Setting margin type for {symbol} to {margin_type}")
+            logger.info(f"{symbol} için marjin türü {margin_type} olarak ayarlanıyor")
             response = self.client.futures_change_margin_type(symbol=symbol, marginType=margin_type.upper(), timestamp=self._get_timestamp())
-            logger.info(f"Margin type set for {symbol}: {response}")
+            logger.info(f"{symbol} için marjin türü ayarlandı: {response}")
             return True
         except BinanceAPIException as e:
-            logger.error(f"Binance API Exception setting margin type for {symbol} to {margin_type}: {e}")
-            # Example: e.code == -4046 (No need to change margin type)
+            logger.error(f"{symbol} için marjin türü {margin_type} olarak ayarlanırken Binance API İstisnası: {e}")
+            # Örnek: e.code == -4046 (Marjin türünü değiştirmeye gerek yok)
             if e.code == -4046: # "No need to change margin type"
-                logger.info(f"Margin type for {symbol} is already {margin_type} or no change needed.")
-                return True # Treat as success
-            # Other codes:
-            # -4059: "Margin type cannot be changed if there are open orders or positions."
-            # This is a critical one. If we hit this, we should not proceed with the trade.
+                logger.info(f"{symbol} için marjin türü zaten {margin_type} veya değişiklik gerekmiyor.")
+                return True # Başarılı olarak kabul et
+            # Diğer kodlar:
+            # -4059: "Açık emirler veya pozisyonlar varsa marjin türü değiştirilemez."
+            # Bu kritik bir durumdur. Eğer bununla karşılaşırsak, işleme devam etmemeliyiz.
             if e.code == -4059:
-                 logger.error(f"CRITICAL: Cannot change margin type for {symbol} to {margin_type} due to existing open orders or positions. Manual intervention likely required if change is necessary.")
-                 self.telegram_notifier.notify_error(f"Margin Type Error: {symbol}", f"Cannot change margin type to {margin_type} due to open orders/positions. Manual check needed.")
-                 return False # This is a hard failure for this operation
-            self.telegram_notifier.notify_error(f"Margin Type Error: {symbol}", f"Failed to set margin type to {margin_type}. Code: {e.code}, Msg: {e.message}")
+                 logger.error(f"KRİTİK: Mevcut açık emirler veya pozisyonlar nedeniyle {symbol} için marjin türü {margin_type} olarak değiştirilemiyor. Değişiklik gerekliyse manuel müdahale gerekebilir.")
+                 self.telegram_notifier.notify_error(f"Marjin Türü Hatası: {symbol}", f"Açık emirler/pozisyonlar nedeniyle marjin türü {margin_type} olarak değiştirilemiyor. Manuel kontrol gerekli.")
+                 return False # Bu, bu işlem için kesin bir başarısızlıktır
+            self.telegram_notifier.notify_error(f"Marjin Türü Hatası: {symbol}", f"Marjin türü {margin_type} olarak ayarlanamadı. Kod: {e.code}, Mesaj: {e.message}")
             return False
         except Exception as e:
             logger.error(f"Generic error setting margin type for {symbol}: {e}")
-            self.telegram_notifier.notify_error(f"Margin Type Error: {symbol}", f"Generic error setting margin type to {margin_type}.")
+            self.telegram_notifier.notify_error(f"Marjin Türü Hatası: {symbol}", f"Marjin türü {margin_type} olarak ayarlanırken genel hata.")
             return False
 
     def _get_server_time_offset(self):
@@ -97,7 +97,7 @@ class BinanceFuturesClient:
         return (Decimal(str(quantity)).quantize(Decimal(str(step_size)), rounding=ROUND_DOWN))
 
     def _adjust_price_to_tick(self, price, tick_size):
-        return (Decimal(str(price)).quantize(Decimal(str(tick_size)), rounding=ROUND_DOWN)) # Or ROUND_NEAREST
+        return (Decimal(str(price)).quantize(Decimal(str(tick_size)), rounding=ROUND_DOWN)) # Veya ROUND_NEAREST
 
     def get_usdt_balance(self):
         try:
@@ -123,7 +123,7 @@ class BinanceFuturesClient:
             logger.error(f"Binance API Exception getting positions: {e}")
         except Exception as e:
             logger.error(f"Error getting open positions: {e}")
-        return 0 # Or raise exception
+        return 0 # Veya istisna yükselt
 
     def calculate_position_size(self, symbol, usdt_balance, entry_price):
         if entry_price <= 0:
@@ -149,13 +149,13 @@ class BinanceFuturesClient:
             adjusted_quantity = self._adjust_quantity_to_step(quantity, quantity_precision)
             logger.info(f"Calculated position size for {symbol}: {quantity}, adjusted to: {adjusted_quantity} (step: {quantity_precision})")
 
-            # Check minNotional
+            # minNotional kontrol et
             min_notional_filter = next((f for f in symbol_info['filters'] if f['filterType'] == 'MIN_NOTIONAL'), None)
             if min_notional_filter:
                 min_notional = float(min_notional_filter['notional'])
                 if float(adjusted_quantity) * entry_price < min_notional:
                     logger.warning(f"Calculated notional ({float(adjusted_quantity) * entry_price}) for {symbol} is less than minNotional ({min_notional}). Cannot place order.")
-                    return None # Or adjust to meet minNotional if desired and possible
+                    return None # Veya istenirse ve mümkünse minNotional'ı karşılamak için ayarla
             return float(adjusted_quantity)
         else:
             logger.warning(f"Could not determine quantity precision for {symbol}. Using unadjusted quantity: {quantity}")
@@ -175,14 +175,14 @@ class BinanceFuturesClient:
 
         params = {
             'symbol': symbol,
-            'side': side, # 'BUY' or 'SELL'
+            'side': side, # 'AL' veya 'SAT'
             'quantity': quantity,
             'timestamp': self._get_timestamp()
         }
 
         if order_type:
             params['type'] = order_type
-        else: # Default to LIMIT if price provided, else MARKET
+        else: # Fiyat sağlanmışsa varsayılan olarak LIMIT, aksi takdirde MARKET
             params['type'] = FUTURE_ORDER_TYPE_LIMIT if price else FUTURE_ORDER_TYPE_MARKET
 
         if params['type'] == FUTURE_ORDER_TYPE_LIMIT:
@@ -193,7 +193,7 @@ class BinanceFuturesClient:
                 params['price'] = self._adjust_price_to_tick(price, price_precision)
             else:
                 params['price'] = price
-            params['timeInForce'] = TIME_IN_FORCE_GTC # Good Till Cancelled
+            params['timeInForce'] = TIME_IN_FORCE_GTC # İptal Edilene Kadar Geçerli
 
         if params['type'] in [FUTURE_ORDER_TYPE_STOP_MARKET, FUTURE_ORDER_TYPE_TAKE_PROFIT_MARKET]:
             if not stop_price:
@@ -203,16 +203,16 @@ class BinanceFuturesClient:
                  params['stopPrice'] = self._adjust_price_to_tick(stop_price, price_precision)
             else:
                 params['stopPrice'] = stop_price
-            params['reduceOnly'] = False # For initial SL it's not reduceOnly. For TP it might be.
+            params['reduceOnly'] = False # Başlangıç SL için reduceOnly değildir. TP için olabilir.
 
-        # For STOP or TAKE_PROFIT orders (non-market), price is also needed.
-        # FUTURE_ORDER_TYPE_STOP, FUTURE_ORDER_TYPE_TAKE_PROFIT
+        # STOP veya TAKE_PROFIT emirleri (piyasa dışı) için fiyat da gereklidir.
+        # FUTURE_ORDER_TYPE_STOP, FUTURE_ORDER_TYPE_TAKE_PROFIT (Limit emirleri için)
 
         logger.info(f"Placing order with params: {params}")
         try:
-            # Ensure leverage is set if needed (usually per symbol, once)
+            # Gerekirse kaldıracın ayarlandığından emin olun (genellikle sembol başına, bir kez)
             # self.client.futures_change_leverage(symbol=symbol, leverage=config.LEVERAGE, timestamp=self._get_timestamp())
-            # Ensure margin type is set if needed (ISOLATED or CROSSED)
+            # Gerekirse marjin türünün ayarlandığından emin olun (İZOLÉ veya ÇAPRAZ)
             # self.client.futures_change_margin_type(symbol=symbol, marginType='ISOLATED', timestamp=self._get_timestamp())
 
             order = self.client.futures_create_order(**params)
@@ -220,7 +220,7 @@ class BinanceFuturesClient:
             return order
         except BinanceAPIException as e:
             logger.error(f"Binance API Exception placing order: {e.message} (Code: {e.code}) - Params: {params}")
-            # Example: Handle margin errors, e.g. e.code == -2019 (Margin is insufficient.)
+            # Örnek: Marjin hatalarını yönetin, ör. e.code == -2019 (Marjin yetersiz.)
         except BinanceOrderException as e:
             logger.error(f"Binance Order Exception placing order: {e} - Params: {params}")
         except Exception as e:
@@ -229,12 +229,12 @@ class BinanceFuturesClient:
 
     def create_entry_order(self, symbol, signal_type, entry_price, quantity):
         side = SIDE_BUY if signal_type == 'long' else SIDE_SELL
-        order_type = config.ORDER_TYPES.get('entry', 'LIMIT').upper() # Default to LIMIT
+        order_type = config.ORDER_TYPES.get('entry', 'LIMIT').upper() # Varsayılan olarak LIMIT
 
         if order_type == 'LIMIT':
             return self.place_futures_order(symbol, side, quantity, price=entry_price, order_type=FUTURE_ORDER_TYPE_LIMIT)
         elif order_type == 'MARKET':
-            # Market order doesn't use entry_price directly for placement, but useful for SL calc
+            # Piyasa emri, yerleştirme için doğrudan entry_price kullanmaz, ancak SL hesaplaması için kullanışlıdır
             return self.place_futures_order(symbol, side, quantity, order_type=FUTURE_ORDER_TYPE_MARKET)
         else:
             logger.error(f"Unsupported entry order type: {order_type}")
@@ -246,21 +246,21 @@ class BinanceFuturesClient:
         if signal_type == 'long':
             side = SIDE_SELL
             stop_price = entry_price * (1 - sl_pct)
-        else: # short
+        else: # short (kısa)
             side = SIDE_BUY
             stop_price = entry_price * (1 + sl_pct)
 
-        stop_order_type_str = config.ORDER_TYPES.get('stoploss', 'MARKET').upper() # Default to MARKET (STOP_MARKET)
+        stop_order_type_str = config.ORDER_TYPES.get('stoploss', 'MARKET').upper() # Varsayılan olarak MARKET (STOP_MARKET)
 
         binance_stop_order_type = None
-        if stop_order_type_str == 'MARKET': # This means STOP_MARKET for Binance
+        if stop_order_type_str == 'MARKET': # Bu, Binance için STOP_MARKET anlamına gelir
             binance_stop_order_type = FUTURE_ORDER_TYPE_STOP_MARKET
-        elif stop_order_type_str == 'LIMIT': # This means STOP (which is a limit order after stop price is hit)
+        elif stop_order_type_str == 'LIMIT': # Bu, STOP anlamına gelir (stop fiyatına ulaşıldıktan sonra bir limit emri)
              binance_stop_order_type = FUTURE_ORDER_TYPE_STOP
-             # For a STOP LIMIT order, you'd also need a 'price' param (the limit price for the stop)
-             # For simplicity, we'll use STOP_MARKET as per 'stoploss_on_exchange': true
+             # Bir STOP LIMIT emri için, bir 'price' parametresine de ihtiyacınız olacaktır (stop için limit fiyatı)
+             # Basitlik için, 'stoploss_on_exchange': true uyarınca STOP_MARKET kullanacağız
              logger.warning("STOP LIMIT SL orders require a limit price. Defaulting to STOP_MARKET behavior if not provided.")
-             # For now, only STOP_MARKET is fully implemented here.
+             # Şimdilik burada yalnızca STOP_MARKET tam olarak uygulanmıştır.
              binance_stop_order_type = FUTURE_ORDER_TYPE_STOP_MARKET
 
 
@@ -270,7 +270,7 @@ class BinanceFuturesClient:
 
         logger.info(f"Creating SL for {symbol}: side={side}, stop_price={stop_price}, entry_price={entry_price}, quantity={quantity_for_sl}")
 
-        # For STOP_MARKET, the 'price' param is not used. 'stopPrice' is the trigger.
+        # STOP_MARKET için 'price' parametresi kullanılmaz. 'stopPrice' tetikleyicidir.
         sl_order = self.place_futures_order(symbol, side, quantity_for_sl,
                                             stop_price=stop_price,
                                             order_type=binance_stop_order_type)
@@ -279,18 +279,6 @@ class BinanceFuturesClient:
         else:
             logger.error(f"Failed to place stop loss order for {symbol}")
         return sl_order
-
-    def close_position_market(self, symbol, position_amt_str):
-        position_amt = float(position_amt_str)
-        if position_amt == 0:
-            logger.info(f"No position to close for {symbol}")
-            return None
-
-        side = SIDE_SELL if position_amt > 0 else SIDE_BUY # If long, sell to close. If short, buy to close.
-        quantity = abs(position_amt)
-
-        logger.info(f"Attempting to close {quantity} of {symbol} with a MARKET order (side: {side})")
-        return self.place_futures_order(symbol, side, quantity, order_type=FUTURE_ORDER_TYPE_MARKET)
 
     def get_open_position_for_symbol(self, symbol):
         try:
@@ -307,46 +295,143 @@ class BinanceFuturesClient:
             logger.error(f"Error getting position for {symbol}: {e}")
         return None
 
-# Example usage (for testing this module directly)
+    def close_trade_at_market(self, symbol: str, quantity: float, original_signal_type: str):
+        """
+        Mevcut bir pozisyonu piyasa fiyatından kapatır.
+        original_signal_type, kapatılacak işlemin yönüdür ('long' veya 'short').
+        Kapatma emri detaylarını veya bir hata oluşursa None döndürür.
+        """
+        if quantity <= 0: # Miktar kontrolü, `closePosition: 'true'` kullanılsa bile bir güvenlik önlemi olarak kalabilir.
+            logger.error(f"{symbol} için kapatılacak miktar pozitif olmalıdır. Alınan: {quantity}")
+            return None
+
+        side_to_close = None
+        if original_signal_type.lower() == 'long':
+            side_to_close = SIDE_SELL # Long pozisyonu kapatmak için sat
+        elif original_signal_type.lower() == 'short':
+            side_to_close = SIDE_BUY # Short pozisyonu kapatmak için al
+        else:
+            logger.error(f"{symbol} için geçersiz orijinal sinyal türü: {original_signal_type}. Kapatma işlemi yapılamadı.")
+            return None
+
+        logger.info(f"{symbol} sembolündeki {original_signal_type} yönlü pozisyon piyasa emriyle kapatılmaya çalışılıyor (taraf: {side_to_close}). Miktar: {quantity} (Not: closePosition=true kullanılacak).")
+
+        try:
+            close_params = {
+                'symbol': symbol,
+                'side': side_to_close,
+                'type': FUTURE_ORDER_TYPE_MARKET,
+                'timestamp': self._get_timestamp(),
+                'closePosition': 'true' # Pozisyonun tamamını piyasa fiyatından kapatır
+            }
+            # Not: `closePosition` kullanırken `quantity` parametresi gönderilmemelidir.
+            # Binance API dokümanlarına göre, `closePosition=true` olduğunda `quantity` gönderilirse hata alınır.
+            # `side` parametresi de `closePosition` ile birlikte kullanıldığında Binance tarafından genellikle yok sayılır,
+            # çünkü pozisyonun yönünü zaten bilir. Ancak, API'nin bunu zorunlu kılması ihtimaline karşı dahil edilebilir.
+
+            logger.info(f"{symbol} için pozisyon kapatma emri parametreleri ('closePosition=true' ile): {close_params}")
+            order = self.client.futures_create_order(**close_params)
+
+            filled_price = order.get('avgPrice')
+            if not filled_price or float(filled_price) == 0:
+                logger.warning(f"{symbol} için pozisyon kapatma emri yanıtında ortalama dolum fiyatı bulunamadı. Emir ID: {order.get('orderId')}")
+
+            logger.info(f"{symbol} pozisyonu için kapatma emri başarıyla verildi: {order}")
+            return order
+
+        except BinanceAPIException as e:
+            logger.error(f"Binance API İstisnası {symbol} pozisyonu kapatılırken: {e.message} (Kod: {e.code})")
+            self.telegram_notifier.notify_error(f"Pozisyon Kapatma API Hatası: {symbol}", f"Kod: {e.code}, Mesaj: {e.message}")
+        except BinanceOrderException as e: # Bu genellikle emir reddi gibi durumlar için daha spesifiktir
+            logger.error(f"Binance Emir İstisnası {symbol} pozisyonu kapatılırken: {e}")
+            self.telegram_notifier.notify_error(f"Pozisyon Kapatma Emir Hatası: {symbol}", str(e))
+        except Exception as e:
+            logger.error(f"{symbol} pozisyonu kapatılırken genel hata: {e}", exc_info=True)
+            self.telegram_notifier.notify_error(f"Pozisyon Kapatma Genel Hata: {symbol}", str(e))
+
+        return None
+
+    def get_all_open_positions_detailed(self):
+        """
+        Binance'ten tüm açık vadeli işlem pozisyonlarının detaylı bir listesini alır.
+        Sadece pozisyon miktarı sıfır olmayan pozisyonları döndürür.
+        Dönen her pozisyon detayı şunları içerir: sembol, pozisyon miktarı, giriş fiyatı.
+        Hata durumunda boş bir sözlük döndürür.
+        """
+        open_positions_map = {}
+        try:
+            logger.debug("Binance'ten tüm açık pozisyon bilgileri alınıyor...")
+            all_positions_info = self.client.futures_position_information(timestamp=self._get_timestamp())
+
+            if not all_positions_info:
+                logger.info("Binance'ten pozisyon bilgisi alınamadı veya hiç pozisyon yok.")
+                return open_positions_map
+
+            for pos in all_positions_info:
+                # Pozisyon miktarını float'a çevirerek kontrol et
+                position_amount = float(pos.get('positionAmt', 0))
+                if position_amount != 0:
+                    symbol = pos['symbol']
+                    open_positions_map[symbol] = {
+                        'symbol': symbol,
+                        'quantity': position_amount,
+                        'entry_price': float(pos.get('entryPrice', 0.0)),
+                        'unrealized_pnl': float(pos.get('unRealizedProfit', 0.0)) # Ek bilgi olarak faydalı olabilir
+                        # İhtiyaç duyulursa 'leverage', 'marginType' gibi başka alanlar da eklenebilir
+                    }
+            logger.info(f"Binance'te {len(open_positions_map)} adet açık pozisyon bulundu: {list(open_positions_map.keys())}")
+            return open_positions_map
+
+        except BinanceAPIException as e:
+            logger.error(f"Binance API İstisnası tüm açık pozisyonlar alınırken: {e.message} (Kod: {e.code})")
+            self.telegram_notifier.notify_error("Pozisyon Alma API Hatası", f"Tüm pozisyonlar alınırken hata: Kod {e.code}, Mesaj: {e.message}")
+        except Exception as e:
+            logger.error(f"Tüm açık pozisyonlar alınırken genel bir hata oluştu: {e}", exc_info=True)
+            self.telegram_notifier.notify_error("Pozisyon Alma Hatası", f"Tüm pozisyonlar alınırken genel hata: {str(e)}")
+
+        return open_positions_map # Hata durumunda boş map döndür
+
+
+# Örnek kullanım (bu modülü doğrudan test etmek için)
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger.info("Testing BinanceFuturesClient...")
 
-    # Ensure config.py has dummy keys if you run this directly, or real (testnet) keys
+    # Bu dosyayı doğrudan çalıştırırsanız config.py dosyasında sahte anahtarların veya gerçek (testnet) anahtarların olduğundan emin olun
     if config.BINANCE_API_KEY == "YOUR_BINANCE_API_KEY" or config.BINANCE_API_SECRET == "YOUR_BINANCE_API_SECRET":
         logger.warning("Using placeholder API keys. Live tests will fail.")
-        # exit() # Uncomment to prevent running with placeholder keys
+        # exit() # Yer tutucu anahtarlarla çalışmasını önlemek için yorum satırını kaldırın
 
-    # It's highly recommended to use Binance Testnet for development and testing.
+    # Geliştirme ve test için Binance Testnet kullanılması şiddetle tavsiye edilir.
     # client.API_URL = 'https://testnet.binance.vision/api'
     # client.FUTURES_URL = 'https://testnet.binancefuture.com'
 
     futures_client = BinanceFuturesClient(config.BINANCE_API_KEY, config.BINANCE_API_SECRET)
 
-    # Test connection and time sync
+    # Bağlantıyı ve zaman senkronizasyonunu test et
     logger.info(f"Server time offset: {futures_client.server_time_offset} ms")
 
-    # Test get balance
+    # Bakiye almayı test et
     usdt_balance = futures_client.get_usdt_balance()
     logger.info(f"Current USDT balance: {usdt_balance}")
 
-    # Test get open positions count
+    # Açık pozisyon sayısını almayı test et
     open_positions_count = futures_client.get_open_positions_count()
     logger.info(f"Current open positions: {open_positions_count}")
 
-    # Test symbol info and calculations (use a valid futures symbol)
-    test_symbol = "BTCUSDT" # Make sure this is in config.TRADING_PAIRS
+    # Sembol bilgilerini ve hesaplamalarını test et (geçerli bir vadeli işlem sembolü kullanın)
+    test_symbol = "BTCUSDT" # Bunun config.TRADING_PAIRS içinde olduğundan emin olun
     if test_symbol not in config.TRADING_PAIRS:
         logger.warning(f"{test_symbol} not in TRADING_PAIRS, some tests might be misleading.")
 
     symbol_info = futures_client.get_symbol_info(test_symbol)
     if symbol_info:
         logger.info(f"Symbol info for {test_symbol}: Retrieved")
-        # logger.info(f"Symbol info for {test_symbol}: {symbol_info}") # Very verbose
+        # logger.info(f"Symbol info for {test_symbol}: {symbol_info}") # Çok ayrıntılı
 
-        # Test position size calculation
-        # Ensure entry_price is realistic for the test_symbol
-        # Example: current BTC price is $60000
+        # Pozisyon büyüklüğü hesaplamasını test et
+        # entry_price'ın test_symbol için gerçekçi olduğundan emin olun
+        # Örnek: mevcut BTC fiyatı 60000$
         # test_entry_price = 60000
         # if usdt_balance > 0 and test_entry_price > 0:
         #     calculated_size = futures_client.calculate_position_size(test_symbol, usdt_balance, test_entry_price)
@@ -356,43 +441,43 @@ if __name__ == '__main__':
     else:
         logger.error(f"Could not get symbol info for {test_symbol}. Further tests involving this symbol might fail.")
 
-    # --- Test order placement (CAUTION: USES REAL OR TESTNET FUNDS) ---
-    # Ensure you are on TESTNET or using very small amounts if on live.
-    # And that the symbol is correctly configured (leverage, margin type).
+    # --- Emir verme testi (DİKKAT: GERÇEK VEYA TESTNET FONLARINI KULLANIR) ---
+    # TESTNET'te olduğunuzdan veya canlı yayındaysanız çok küçük miktarlar kullandığınızdan emin olun.
+    # Ve sembolün doğru şekilde yapılandırıldığından (kaldıraç, marjin türü).
     #
-    # Example: Place a small test order
-    # test_entry_price = 60000 # A hypothetical price for BTCUSDT
-    # test_quantity = 0.001 # A small quantity of BTC
+    # Örnek: Küçük bir test emri verin
+    # test_entry_price = 60000 # BTCUSDT için varsayımsal bir fiyat
+    # test_quantity = 0.001 # Küçük bir BTC miktarı
     #
-    # if symbol_info and calculated_size: # Use calculated_size if available and valid
+    # if symbol_info and calculated_size: # Mevcut ve geçerliyse calculated_size kullanın
     #    test_quantity = calculated_size
     #
     # if open_positions_count < config.MAX_OPEN_TRADES and test_quantity > 0:
-    #     logger.info(f"Attempting to place a test LIMIT BUY order for {test_quantity} {test_symbol} at ${test_entry_price * 0.95}") # Buy 5% below hypothetical price
-    #     # Ensure price is adjusted to tick size for limit orders
-    #     adjusted_test_price = futures_client._adjust_price_to_tick(test_entry_price * 0.95, symbol_info['filters'][0]['tickSize']) # Assuming price filter is first
+    #     logger.info(f"Attempting to place a test LIMIT BUY order for {test_quantity} {test_symbol} at ${test_entry_price * 0.95}") # Varsayımsal fiyatın %5 altında al
+    #     # Limit emirleri için fiyatın tick boyutuna ayarlandığından emin olun
+    #     adjusted_test_price = futures_client._adjust_price_to_tick(test_entry_price * 0.95, symbol_info['filters'][0]['tickSize']) # Fiyat filtresinin ilk olduğunu varsayıyoruz
     #
     #     entry_order = futures_client.create_entry_order(test_symbol, 'long', float(adjusted_test_price), test_quantity)
     #     if entry_order:
     #         logger.info(f"Test entry order placed: {entry_order}")
-    #         # Example: Place a stop loss for this test order
-    #         # The quantity for SL should match the quantity of the position opened.
-    #         # If order is FILLED immediately (e.g. market order or aggressive limit), you can get actual entry price from order response.
-    #         # For a GTC LIMIT order, it might not fill immediately. SL setup needs filled position info.
-    #         # For this direct test, we assume it fills at adjusted_test_price for SL calculation.
+    #         # Örnek: Bu test emri için bir zarar durdurma emri verin
+    #         # SL için miktar, açılan pozisyonun miktarıyla eşleşmelidir.
+    #         # Emir hemen GERÇEKLEŞİRSE (ör. piyasa emri veya agresif limit), emir yanıtından gerçek giriş fiyatını alabilirsiniz.
+    #         # Bir GTC LIMIT emri için hemen dolmayabilir. SL kurulumu, doldurulmuş pozisyon bilgisi gerektirir.
+    #         # Bu doğrudan test için, SL hesaplaması için adjusted_test_price'ta dolduğunu varsayıyoruz.
     #         sl_order = futures_client.create_stop_loss_order(test_symbol, 'long', float(adjusted_test_price), test_quantity)
     #         if sl_order:
     #             logger.info(f"Test SL order placed: {sl_order}")
     #     else:
     #         logger.error("Test entry order failed.")
     # else:
-    #    logger.warning(f"Skipping test order placement. Open positions: {open_positions_count}, Max: {config.MAX_OPEN_TRADES}, Test Qty: {test_quantity}")
+    #    logger.warning(f"Test emri verme atlanıyor. Açık pozisyonlar: {open_positions_count}, Maks: {config.MAX_OPEN_TRADES}, Test Miktarı: {test_quantity}")
 
-    # Test fetching a specific open position
+    # Belirli bir açık pozisyonu getirme testi
     # open_pos_btc = futures_client.get_open_position_for_symbol(test_symbol)
     # if open_pos_btc:
     #    logger.info(f"Open position for {test_symbol}: Amount {open_pos_btc['positionAmt']}")
-        # Test closing this position
+        # Bu pozisyonu kapatma testi
         # close_order = futures_client.close_position_market(test_symbol, open_pos_btc['positionAmt'])
         # if close_order:
         #    logger.info(f"Market close order for {test_symbol} placed: {close_order}")

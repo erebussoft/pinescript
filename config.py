@@ -11,6 +11,9 @@ BINANCE_API_SECRET = "YOUR_BINANCE_API_SECRET" # BINANCE_API_SECRET: Binance API
 TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN" # TELEGRAM_BOT_TOKEN: Telegram botunuzun token'ı.
 TELEGRAM_CHAT_ID = "YOUR_TELEGRAM_CHAT_ID" # TELEGRAM_CHAT_ID: Telegram'da mesajların gönderileceği sohbet ID'si.
 
+# --- Veritabanı Yapılandırması ---
+DATABASE_FILE = "trades.db" # Kullanılacak SQLite veritabanı dosyasının adı
+
 # --- Ticaret Parametreleri ---
 LEVERAGE = 10  # LEVERAGE: Kaldıraç oranı (örneğin, 10x).
 MARGIN_TYPE = "ISOLATED"  # MARGIN_TYPE: Marjin türü ("ISOLATED" veya "CROSSED").
@@ -18,7 +21,7 @@ TRADABLE_BALANCE_RATIO = 0.99  # TRADABLE_BALANCE_RATIO: Ticaret için kullanıl
 # MAX_OPEN_TRADES: Aynı anda açılabilecek maksimum işlem sayısı. Pozisyon büyüklüğü hesaplaması için 0'dan büyük olmalıdır.
 MAX_OPEN_TRADES = 3
 STOP_LOSS = 0.035  # STOP_LOSS: Zarar durdurma yüzdesi (örneğin, %2 için 0.02).
-TAKE_PROFIT = 0.05 # TAKE_PROFIT: Kar alma yüzdesi (örneğin, %5 için 0.05) 
+TAKE_PROFIT = 0.05 # TAKE_PROFIT: Kar alma yüzdesi (örneğin, %5 için 0.05)
 
 # --- Webhook Yapılandırması ---
 # Bu, TradingView uyarılarınızda ayarladığınız zaman aralığı ile eşleşmelidir
